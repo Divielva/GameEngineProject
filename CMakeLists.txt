@@ -16,16 +16,23 @@ endif()
 
 project (GameEngineProject)
 
-file(GLOB_RECURSE IMGUI_SOURCES "deps/includes/imgui/*.cpp")
-file(GLOB_RECURSE IMGUI_HEADERS "deps/includes/imgui/*.h")
 
 # Include sub-projects.
 include_directories(deps/includes)
-add_subdirectory (GameEngineProject)
 
-add_executable(OpenGLEngineCpp ${IMGUI_SOURCES} ${IMGUI_HEADERS})
+file(GLOB_RECURSE SOURCES "GameEngineProject/*.cpp")
+file(GLOB_RECURSE HEADERS "GameEngineProject/*.h")
+file(GLOB_RECURSE IMGUI_SOURCES "deps/includes/imgui/*.cpp")
+file(GLOB_RECURSE IMGUI_HEADERS "deps/includes/imgui/*.h")
+add_executable (GameEngineProject "GameEngineProject/glad.c" ${SOURCES} ${HEADERS} ${IMGUI_SOURCES} ${IMGUI_HEADERS})
 
+set_target_properties(GameEngineProject PROPERTIES VS_DEBUGGER_WORKING_DIRECTORY $<TARGET_FILE_DIR:GameEngineProject>)
+if (CMAKE_VERSION VERSION_GREATER 3.12)
+  set_property(TARGET GameEngineProject PROPERTY CXX_STANDARD 20)
+endif()
 
 target_link_directories(GameEngineProject PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/deps/libs)
 target_link_libraries(GameEngineProject PRIVATE "glfw3.lib")
 target_link_libraries(GameEngineProject PRIVATE "opengl32.lib")
+
+add_custom_command(TARGET GameEngineProject POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_CURRENT_SOURCE_DIR}/shaders $<TARGET_FILE_DIR:GameEngineProject>/shaders)
