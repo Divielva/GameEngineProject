@@ -181,7 +181,7 @@ int Window::init()
     debugLine = new Line();
     debugLine->set_shader(ShaderStore::get_shader("noLight"));
     debugLine->set_material(new ColorMaterial());
-    dynamic_cast<ColorMaterial *>(debugLine->get_material())->color = glm::vec4(1.0f, 0.0f, 0.0f, 0.5f);
+    dynamic_cast<ColorMaterial *>(debugLine->get_material())->color = glm::vec4(0.0f, 1.0f, 0.0f, 0.5f);
     debugArrow = new Arrow();
     debugArrow->set_shader(ShaderStore::get_shader("noLight"));
     debugArrow->set_material(new ColorMaterial());

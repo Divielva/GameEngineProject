@@ -29,15 +29,15 @@ static glm::vec3 get_collision_normal(AABB *a, AABB *b)
 static glm::vec3 get_collision_normal(AABB *a, SphereCollider *b)
 {
     glm::vec3 closest = glm::vec3(
-        glm::clamp(b->center.x, a->center.x - a->extent.x, a->center.x + a->extent.x),
-        glm::clamp(b->center.y, a->center.y - a->extent.y, a->center.y + a->extent.y),
-        glm::clamp(b->center.z, a->center.z - a->extent.z, a->center.z + a->extent.z));
+        glm::clamp(b->get_center().x, a->center.x - a->extent.x, a->center.x + a->extent.x),
+        glm::clamp(b->get_center().y, a->center.y - a->extent.y, a->center.y + a->extent.y),
+        glm::clamp(b->get_center().z, a->center.z - a->extent.z, a->center.z + a->extent.z));
     glm::vec3 normal = glm::vec3(0);
-	if (closest.x > closest.y && closest.x > closest.z)
+	if (abs(closest.x) > abs(closest.y) && abs(closest.x) > abs(closest.z))
 	{
 		normal.x = closest.x;
 	}
-	else if (closest.y > closest.x && closest.y > closest.z)
+	else if (abs(closest.y) > abs(closest.x) && abs(closest.y) > abs(closest.z))
 	{
 		normal.y = closest.y;
 	}
@@ -55,7 +55,7 @@ static glm::vec3 get_collision_normal(SphereCollider *a, AABB *b)
 
 static glm::vec3 get_collision_normal(SphereCollider *a, SphereCollider *b)
 {
-    glm::vec3 normal = a->center - b->center;
+    glm::vec3 normal = a->get_center() - b->get_center();
     float distance = glm::length(normal);
     if (distance < a->radius + b->radius)
     {

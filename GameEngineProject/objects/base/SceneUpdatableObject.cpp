@@ -57,13 +57,11 @@ std::tuple<glm::vec3, glm::vec3> get_new_velocity(Physics *a, Physics *b)
         auto p2 = b->get_parent()->get_position();
 
         auto n = (p1 - p2) / glm::length(p1 - p2);
-        auto vr = v1 - v2;
+        auto vr = abs(v1) - abs(v2);
         auto vn = (vr * n) * n;
-		vn.y = 0;
 
         auto v1n = (m1 - m2) / (m1 + m2) * v1 + (2 * m2) / (m1 + m2) * v2;
-        auto v2n = (m2 - m1) / (m1 + m2) * v1 + (2 * m1) / (m1 + m2) * v2;
-		v1n.y = v2n.y = 0;
+        auto v2n = (m2 - m1) / (m1 + m2) * v2 + (2 * m1) / (m1 + m2) * v1;
         new_velocity = std::make_tuple(v1n - vn, v2n + vn);
     }
 
@@ -80,6 +78,6 @@ void Physics::apply_collision(Physics *other)
 void Physics::apply_collision(glm::vec3 normal)
 {
     auto v = get_velocity();
-    v = get_new_collision_vector(v, normal) * length(v);
+    v = get_new_collision_vector(normalize(v), normal) * length(v);
     set_velocity(v);
 }

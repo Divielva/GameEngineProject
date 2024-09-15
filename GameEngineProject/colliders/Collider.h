@@ -40,6 +40,8 @@ public:
     void set_parent(SceneObject *parent) { this->parent = parent; }
 
     virtual void update(SceneObject *object) = 0;
+	virtual float get_radius() { return 0.0f; }
+	virtual glm::vec3 get_center() { return glm::vec3(0); }
 };
 
 template <typename T>
