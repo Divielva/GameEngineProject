@@ -56,13 +56,13 @@ std::tuple<glm::vec3, glm::vec3> get_new_velocity(Physics *a, Physics *b)
         auto p1 = a->get_parent()->get_position();
         auto p2 = b->get_parent()->get_position();
 
-        auto n = (p1 - p2) / glm::length(p1 - p2);
+        auto n = normalize((p1 - p2) / glm::length(p1 - p2));
         auto vr = abs(v1) - abs(v2);
         auto vn = (vr * n) * n;
 
-        auto v1n = (m1 - m2) / (m1 + m2) * v1 + (2 * m2) / (m1 + m2) * v2;
-        auto v2n = (m2 - m1) / (m1 + m2) * v2 + (2 * m1) / (m1 + m2) * v1;
-        new_velocity = std::make_tuple(v1n - vn, v2n + vn);
+        auto v1n = v1 - (m2 * 2 / (m1 + m2)) * (dot(v1 - v2, p1 - p2) / powf(length(p1 - p2), 2)) * (p1 - p2);//(m1 - m2) / (m1 + m2) * v1 + (2 * m2) / (m1 + m2) * v2;
+        auto v2n = v2 - (m1 * 2 / (m2 + m1)) * (dot(v2 - v1, p2 - p1) / powf(length(p2 - p1), 2)) * (p2 - p1); //(m2 - m1) / (m1 + m2) * v2 + (2 * m1) / (m1 + m2) * v1;
+        new_velocity = std::make_tuple(v1n, v2n);
     }
 
     return new_velocity;

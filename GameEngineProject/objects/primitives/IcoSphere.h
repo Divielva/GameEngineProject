@@ -125,7 +125,7 @@ public:
         auto pos = get_position();
         auto toCenterVec = -pos;
         auto speed = get_velocity();
-        speed += toCenterVec * delta_time;
+        //speed += toCenterVec * delta_time;
         set_velocity(speed);
         pos += speed * delta_time;
         set_position(pos);

@@ -12,8 +12,8 @@ public:
 
     SphereCollider() : radius(0.0f), Collider() {}
     SphereCollider(SceneObject *parent) : radius(0.0f), Collider(parent) {}
-    SphereCollider(glm::vec3 center, float radius) : radius(radius), Collider() {}
-    SphereCollider(SceneObject *parent, glm::vec3 center, float radius) : radius(radius), Collider(parent) {}
+    SphereCollider(float radius) : radius(radius), Collider() {}
+    SphereCollider(SceneObject *parent, float radius) : radius(radius), Collider(parent) {}
     ~SphereCollider() {}
 
     /// @brief Fallback for unsupported types

@@ -24,11 +24,14 @@ bool wireframe = false;
 bool mouseActive = false;
 bool drawDebug = false;
 double deltaTime = 0.0;
+double lastWorldUpdate = 0.0;
+constexpr double minDeltaTime = 1 / 60.0;
 float fps = 0.0f;
-float fpsAvg[100] = {0};
+float fpsAvg[100] = { 0 };
 std::chrono::time_point<std::chrono::high_resolution_clock> lastFrame = std::chrono::high_resolution_clock::now();
+int spawnCount = 50;
 
-Camera camera = Camera(glm::vec3(1.5f, 3.0f, 11.5f), glm::vec3(0.0f, 1.0f, 0.0f), -101.0f, -14.5f);
+Camera camera = Camera(glm::vec3(5.0f, 10.0f, 20.5f), glm::vec3(0.0f, 1.0f, 0.0f), -100.0f, -25.0f);
 InputProcessing input;
 
 World *world;
@@ -84,7 +87,7 @@ IcoSphere *create_new(glm::vec3 position, glm::vec3 velocity, glm::vec3 color, f
     sphere->create(3);
     sphere->set_shader(ShaderStore::get_shader("noLight"));
     sphere->set_material(new ColorMaterial());
-    sphere->set_scale(glm::vec3(mass / 10));
+    sphere->set_scale(glm::vec3(mass / 100));
     dynamic_cast<ColorMaterial *>(sphere->get_material())->color = glm::vec4(color, 1);
     sphere->set_velocity(velocity);
     sphere->set_mass(mass);
@@ -110,16 +113,13 @@ void spawn_random()
     auto vel = glm::vec3(0, 0, 0);
     auto color = glm::vec3(0, 0, 0);
     auto mass = 1.0f;
-    for (int i = 0; i < 200; i++)
+    for (int i = 0; i < spawnCount; i++)
     {
         pos = glm::vec3(rand() % 2000, 0, rand() % 2000) / 100.0f - glm::vec3(10, 0, 10);
         vel = glm::vec3(rand() % 1000, 0, rand() % 1000) / 100.0f;
         color = glm::vec3(rand() % 255, rand() % 255, rand() % 255) / 255.0f;
-        mass = (rand() % 25) / 10.0f;
-        if (mass < 0.5f)
-            create_new(pos, vel, color, 0.5f);
-        else
-            create_new(pos, vel, color, mass);
+        mass = (rand() % 25) + 1;
+		create_new(pos, vel, color, mass);
     }
 }
 
@@ -268,7 +268,15 @@ void Window::update() const
     fps = sum / 100;
     glfwPollEvents();
     input.process_keyboard(window, deltaTime);
-    world->update(deltaTime);
+    if (lastWorldUpdate >= minDeltaTime)
+    {
+        world->update(minDeltaTime);
+        lastWorldUpdate = 0;
+    }
+    else
+    {
+        lastWorldUpdate += deltaTime;
+    }
 
     ImGui_ImplOpenGL3_NewFrame();
     ImGui_ImplGlfw_NewFrame();
@@ -278,7 +286,30 @@ void Window::update() const
         ImGui::ShowDemoWindow();
 
     ImGui::Begin("Debug");
+    ImGui::SetWindowSize(ImVec2(311, 235), ImGuiCond_FirstUseEver);
     ImGui::Text("FPS: %.1f", fps);
+    ImGui::Separator();
+    auto spawnCountRef = &spawnCount;
+    ImGui::SetNextItemWidth(100);
+    if (ImGui::InputInt("Number of objects to spawn", spawnCountRef))
+    {
+        spawnCount = std::max(std::min(*spawnCountRef, 999), 1);
+    }
+    if (ImGui::Button("Spawn balls in scene"))
+    {
+        spawn_random();
+    }
+    if (ImGui::Button("Clear scene"))
+    {
+        world->clear();
+    }
+    ImGui::Separator();
+    ImGui::TextUnformatted("w, a, s, d, space, ctrl - move camera");
+    ImGui::TextUnformatted("  * forward, left, back, right, up, down");
+    ImGui::TextUnformatted("f - toggle wireframe");
+    ImGui::TextUnformatted("q - toggle debug");
+    ImGui::TextUnformatted("esc - toggle camera control");
+    ImGui::TextUnformatted("Mouse - rotate camera");
     ImGui::End();
 }
 

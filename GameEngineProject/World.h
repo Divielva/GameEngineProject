@@ -11,18 +11,14 @@ class Arrow;
 
 class World
 {
-    QuadTree<SceneUpdatableObject *> quad_tree;
+    QuadTree<SceneUpdatableObject*> quad_tree;
+    SceneUpdatableObject* Cubes[4];
 
 public:
-    World() {}
+    World();
     ~World()
     {
-        std::vector<SceneUpdatableObject *> objects;
-        quad_tree.query_range(quad_tree.get_bounds(), objects);
-        for (auto &object : objects)
-        {
-            delete object;
-        }
+        clear();
     }
 
     void insert(SceneUpdatableObject *object);
@@ -34,4 +30,9 @@ public:
     void set_bounds(const glm::vec3 &center, const glm::vec3 &extent);
 
     void update(float delta_time);
+
+    void clear()
+    {
+		quad_tree.clear();
+    }
 };

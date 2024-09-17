@@ -209,4 +209,33 @@ public:
         boundary.extent = extent;
     }
     void recalculate();
+
+    void clear()
+    {
+        if (node != nullptr)
+        {
+            delete node;
+            node = nullptr;
+        }
+        if (northWest != nullptr)
+        {
+            delete northWest;
+            northWest = nullptr;
+        }
+        if (northEast != nullptr)
+        {
+            delete northEast;
+            northEast = nullptr;
+        }
+        if (southWest != nullptr)
+        {
+            delete southWest;
+            southWest = nullptr;
+        }
+        if (southEast != nullptr)
+        {
+            delete southEast;
+            southEast = nullptr;
+        }
+    }
 };
