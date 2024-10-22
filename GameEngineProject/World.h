@@ -5,34 +5,43 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 #include "collections/QuadTree.h"
+#include "collections/OcTree.h"
+#include "culling/Frustum.h"
 
-class SceneUpdatableObject;
+class GameObject;
 class Arrow;
+
+struct DrawCounts
+{
+    unsigned objects_culled;
+    unsigned objects_filtered;
+    unsigned objects_drawn;
+};
 
 class World
 {
-    QuadTree<SceneUpdatableObject*> quad_tree;
-    SceneUpdatableObject* Cubes[4];
+    OcTree<GameObject*> tree;
+    std::vector<GameObject*> objects_non_colliders;
 
 public:
-    World();
+    World() {}
     ~World()
     {
         clear();
     }
 
-    void insert(SceneUpdatableObject *object);
+    void insert(GameObject* object);
 
-    void draw();
+    DrawCounts draw(Frustum* frustum);
 
-    void draw_debug(Line *line, Arrow *arrow);
+    void draw_debug(Line* line, Arrow* arrow);
 
-    void set_bounds(const glm::vec3 &center, const glm::vec3 &extent);
+    void set_bounds(const glm::vec3& center, const glm::vec3& extent);
 
     void update(float delta_time);
 
     void clear()
     {
-		quad_tree.clear();
+        tree.clear();
     }
 };

@@ -1,90 +1,61 @@
 #include "World.h"
-#include "objects/base/SceneObject.h"
-#include "objects/base/SceneUpdatableObject.h"
+#include "objects/base/GameObject.h"
+#include "objects/base/GameObject.h"
 #include "collections/QuadTree.h"
-#include "objects/primitives/Cube.h"
 #include "objects/debugTools/Line.h"
 #include "objects/debugTools/Arrow.h"
 #include "colliders/ColliderHandler.h"
-#include "ShaderStore.h"
 
-World::World()
-{
-	Cubes[0] = new Cube();
-	Cubes[1] = new Cube();
-	Cubes[2] = new Cube();
-	Cubes[3] = new Cube();
-    Cubes[0]->set_shader(ShaderStore::get_shader("noLight"));
-    Cubes[1]->set_shader(ShaderStore::get_shader("noLight"));
-    Cubes[2]->set_shader(ShaderStore::get_shader("noLight"));
-    Cubes[3]->set_shader(ShaderStore::get_shader("noLight"));
-	auto mat = new ColorMaterial();
-	mat->color = glm::vec4(.5, .5, .5, 1);
-	Cubes[0]->set_material(mat);
-	Cubes[1]->set_material(mat);
-	Cubes[2]->set_material(mat);
-	Cubes[3]->set_material(mat);
-}
+glm::vec3 checkLoc = glm::vec3(0, 0, 0);
 
-void World::insert(SceneUpdatableObject *object)
+void World::insert(GameObject* object)
 {
-    quad_tree.insert(object);
-}
-
-void World::draw()
-{
-    std::vector<SceneUpdatableObject *> objects;
-    quad_tree.query_range(quad_tree.get_bounds(), objects);
-    for (auto &object : objects)
+    if (object->get_collider() == nullptr)
     {
+        objects_non_colliders.push_back(object);
+        return;
+    }
+    tree.insert(object);
+}
+
+DrawCounts World::draw(Frustum* frustum)
+{
+    std::vector<GameObject*> objects;
+    DrawCounts counts = { 0, 0, 0 };
+    auto tuple = tree.query_range(tree.get_bounds(), objects, frustum);
+    counts.objects_culled = std::get<0>(tuple);
+    counts.objects_filtered = std::get<1>(tuple);
+    for (auto& object : objects)
+    {
+        if (object->get_collider()->is_on_frustum(frustum))
+        {
+            counts.objects_drawn++;
+            object->draw();
+        }
+    }
+    for (auto& object : objects_non_colliders)
+    {
+        counts.objects_drawn++;
         object->draw();
     }
-    for (auto& cube : Cubes)
-    {
-        cube->draw();
-    }
+    return counts;
 }
 
-void World::draw_debug(Line *line, Arrow *arrow)
+void World::draw_debug(Line* line, Arrow* arrow)
 {
-    quad_tree.draw_debug(line);
+    tree.draw_debug(line);
 }
 
 void World::set_bounds(const glm::vec3& center, const glm::vec3& extent)
 {
-    quad_tree.set_bounds(center, extent);
-    auto pos = center;
-    pos.x = extent.x + Cubes[0]->get_scale().x;
-	Cubes[0]->set_position(pos);
-	pos = center;
-	pos.x = -extent.x - Cubes[1]->get_scale().x;
-	Cubes[1]->set_position(pos);
-	pos = center;
-	pos.z = extent.z + Cubes[2]->get_scale().z;
-	Cubes[2]->set_position(pos);
-	pos = center;
-	pos.z = -extent.z - Cubes[3]->get_scale().z;
-	Cubes[3]->set_position(pos);
-
-    auto scale = extent;
-	scale.x = 1;
-	scale.y = 1;
-	Cubes[0]->set_scale(scale);
-	Cubes[1]->set_scale(scale);
-
-	scale = extent;
-	scale.z = 1;
-	scale.y = 1;
-    scale.x = scale.x + 2;
-	Cubes[2]->set_scale(scale);
-	Cubes[3]->set_scale(scale);
+    tree.set_bounds(center, extent);
 }
 
 void World::update(float delta_time)
 {
-    std::vector<SceneUpdatableObject*> objects;
-    AABB bounds = quad_tree.get_bounds();
-    quad_tree.query_range(bounds, objects);
+    std::vector<GameObject*> objects;
+    AABB bounds = tree.get_bounds();
+    tree.query_range(bounds, objects);
     unsigned index = 0;
     for (auto& object : objects)
     {
@@ -95,10 +66,10 @@ void World::update(float delta_time)
                 auto model = object->get_model_matrix();
                 auto minVertex = glm::vec3(model * glm::vec4(object->get_min_vertex().position, 1));
                 auto maxVertex = glm::vec3(model * glm::vec4(object->get_max_vertex().position, 1));
-                std::vector<SceneUpdatableObject*> in_range_objects;
+                std::vector<GameObject*> in_range_objects;
                 bounds.center = (minVertex + maxVertex) / 2.0f; // center of the object
                 bounds.extent = (maxVertex - minVertex) * 2.0f; // double the size of the object
-                quad_tree.query_range(bounds, in_range_objects);
+                tree.query_range(bounds, in_range_objects);
                 bool collided = false;
                 for (auto& in_range_object : in_range_objects)
                 {
@@ -114,11 +85,11 @@ void World::update(float delta_time)
                     object->pre_update(delta_time);
                     object->update(delta_time);
                 }
-                while (!quad_tree.get_bounds().contains(object->get_position()))
+                while (!tree.get_bounds().contains(object->get_position()))
                 {
                     // ball went out of bounds the last frame
                     auto pos = object->get_position();
-                    bounds = quad_tree.get_bounds();
+                    bounds = tree.get_bounds();
                     // find out how much the ball went out of bounds by in delta
                     auto col_delta = glm::clamp(pos, -bounds.extent, bounds.extent);
                     auto pos_delta = col_delta - pos;
@@ -133,5 +104,5 @@ void World::update(float delta_time)
         }
         index++;
     }
-    quad_tree.recalculate();
+    tree.recalculate();
 }

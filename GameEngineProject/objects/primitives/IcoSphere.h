@@ -1,21 +1,21 @@
 #pragma once
 
-#include "../base/SceneUpdatableObject.h"
+#include "../base/GameObject.h"
 #include "../../colliders/SphereCollider.h"
 
-class IcoSphere : public SceneUpdatableObject
+class IcoSphere : public GameObject
 {
 private:
     const float H_ANGLE = glm::pi<float>() / 180 * 72;
     const float V_ANGLE = atanf(1.0f / 2);
 
 public:
-    IcoSphere(glm::vec3 position) : SceneUpdatableObject({}, {})
+    IcoSphere(glm::vec3 position) : GameObject({}, {})
     {
         set_position(position);
         set_collider(new SphereCollider(this));
     };
-    IcoSphere() : SceneUpdatableObject({}, {}) {};
+    IcoSphere() : GameObject({}, {}) {};
     ~IcoSphere() {};
     void create(int subdivisions)
     {
@@ -45,7 +45,7 @@ public:
             11, 7, 6,
             11, 8, 7,
             11, 9, 8,
-            11, 10, 9};
+            11, 10, 9 };
         vertices.resize(12);
         float h_angle1 = -glm::pi<float>() / 2;
         float h_angle2 = h_angle1 - H_ANGLE / 2;
@@ -125,12 +125,12 @@ public:
         auto pos = get_position();
         auto toCenterVec = -pos;
         auto speed = get_velocity();
-        //speed += toCenterVec * delta_time;
+        speed += toCenterVec * delta_time;
         set_velocity(speed);
         pos += speed * delta_time;
         set_position(pos);
-        SceneUpdatableObject::update(delta_time);
+        GameObject::update(delta_time);
     }
 
-    SphereCollider *get_collider() override { return dynamic_cast<SphereCollider *>(SceneObject::get_collider()); }
+    SphereCollider* get_collider() override { return dynamic_cast<SphereCollider*>(GameObject::get_collider()); }
 };

@@ -3,14 +3,14 @@
 #include <map>
 #include <vector>
 
-std::map<unsigned, Shader *> shaders;
-std::vector<void (*)(const Shader *)> shaderCallbacks;
+std::map<unsigned, Shader*> shaders;
+std::vector<void (*)(const Shader*)> shaderCallbacks;
 std::map<unsigned, std::string> shaderNames;
 
-Shader *ShaderStore::add_shader(const std::string &name, const char *vertex_path, const char *fragment_path)
+Shader* ShaderStore::add_shader(const std::string& name, const char* vertex_path, const char* fragment_path)
 {
     const auto shader = new Shader(vertex_path, fragment_path);
-    for (const auto &callback : shaderCallbacks)
+    for (const auto& callback : shaderCallbacks)
     {
         shader->add_params_callback(callback);
     }
@@ -20,18 +20,18 @@ Shader *ShaderStore::add_shader(const std::string &name, const char *vertex_path
     return shader;
 }
 
-Shader *ShaderStore::get_shader(const unsigned id)
+Shader* ShaderStore::get_shader(const unsigned id)
 {
     return shaders[id];
 }
 
-Shader *ShaderStore::get_shader(const std::string name)
+Shader* ShaderStore::get_shader(const std::string name)
 {
     if (shaderNames.empty())
     {
         return nullptr;
     }
-    for (const auto &shader : shaderNames)
+    for (const auto& shader : shaderNames)
     {
         if (shader.second == name)
         {
@@ -43,7 +43,7 @@ Shader *ShaderStore::get_shader(const std::string name)
 
 void ShaderStore::remove_all_shaders()
 {
-    for (const auto &shader : shaders)
+    for (const auto& shader : shaders)
     {
         delete shader.second;
     }
@@ -56,10 +56,10 @@ void ShaderStore::remove_shader(const unsigned id)
     shaders.erase(id);
 }
 
-void ShaderStore::add_params_callback(void func(const Shader *))
+void ShaderStore::add_params_callback(void func(const Shader*))
 {
     shaderCallbacks.push_back(func);
-    for (const auto &shader : shaders)
+    for (const auto& shader : shaders)
     {
         shader.second->add_params_callback(func);
     }

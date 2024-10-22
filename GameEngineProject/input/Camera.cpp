@@ -64,7 +64,7 @@ glm::vec3 Camera::get_pos() const
     return position;
 }
 
-void Camera::set_shader(const Shader *shad)
+void Camera::set_shader(const Shader* shad)
 {
     shad->set_mat4("view", viewMatrix);
     shad->set_vec3("viewPos", position);
@@ -104,9 +104,4 @@ void Camera::process_mouse(float xoffset, float yoffset, bool constrainPitch)
 glm::vec3 Camera::get_movement(glm::vec3 direction) const
 {
     return glm::vec3(glm::vec4(direction, 1) * viewMatrix);
-}
-
-glm::vec3 Camera::get_front() const
-{
-    return front;
 }

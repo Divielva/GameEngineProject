@@ -6,7 +6,7 @@
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
 
-unsigned int create_texture(const char *path, bool gamma_correct, bool silent_error)
+unsigned int create_texture(const char* path, bool gamma_correct, bool silent_error)
 {
     unsigned int texture;
     glGenTextures(1, &texture);
@@ -18,7 +18,7 @@ unsigned int create_texture(const char *path, bool gamma_correct, bool silent_er
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     // load and generate the texture
     int width, height, nrChannels;
-    unsigned char *data = stbi_load(path, &width, &height, &nrChannels, 0);
+    unsigned char* data = stbi_load(path, &width, &height, &nrChannels, 0);
     if (data)
     {
         GLenum format;
@@ -72,12 +72,12 @@ void TextureMaterial::load_texture(const std::string block, const std::string pa
     normalTexture = create_texture(get_path(p, "_n").c_str(), false, true);
 }
 
-void Material::use(Shader *shader)
+void Material::use(Shader* shader)
 {
     shader->set_float("material.shininess", shininess);
 }
 
-void TextureMaterial::use(Shader *shader)
+void TextureMaterial::use(Shader* shader)
 {
     Material::use(shader);
     shader->set_int("material.diffuse", 0);
@@ -92,7 +92,7 @@ void TextureMaterial::use(Shader *shader)
     glBindTexture(GL_TEXTURE_2D, normalTexture);
 }
 
-void ColorMaterial::use(Shader *shader)
+void ColorMaterial::use(Shader* shader)
 {
     Material::use(shader);
     shader->set_vec4("material.color", color);

@@ -1,8 +1,10 @@
 #include "Window.h"
-#include "Camera.h"
-#include "InputProcessing.h"
+#include "input/Camera.h"
+#include "input/InputProcessing.h"
+#include "Shadow.h"
+#include "Light.h"
 #include "ShaderStore.h"
-#include "objects/base/Renderable.h"
+#include "objects/base/GameObjectBase.h"
 #include "objects/primitives/IcoSphere.h"
 #include "objects/primitives/Cube.h"
 #include "objects/debugTools/Line.h"
@@ -16,6 +18,11 @@
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 #include <chrono>
+#include "culling/Frustum.h"
+#include "objects/curves/Bezier.h"
+#include "objects/curves/BSpline.h"
+#include "objects/curves/BSplineSurface.h"
+#include "surface/PointCloud.h"
 
 #define CAMERA_SPEED 2.5f
 
@@ -31,18 +38,24 @@ float fpsAvg[100] = { 0 };
 std::chrono::time_point<std::chrono::high_resolution_clock> lastFrame = std::chrono::high_resolution_clock::now();
 int spawnCount = 50;
 
-Camera camera = Camera(glm::vec3(5.0f, 10.0f, 20.5f), glm::vec3(0.0f, 1.0f, 0.0f), -100.0f, -25.0f);
+Camera camera = Camera(glm::vec3(1.5f, 3.0f, 11.5f), glm::vec3(0.0f, 1.0f, 0.0f), -101.0f, -14.5f);
 InputProcessing input;
+ShadowProcessor shadowProcessor;
+LightManager lightManager;
+Frustum frustum;
+DrawCounts drawCounts;
 
-World *world;
-Line *debugLine;
-Arrow *debugArrow;
+World* world;
+Line* debugLine;
+Arrow* debugArrow;
+IcoSphere* debugSphere;
 GLFWframebuffersizefun prev_framebuffer_size_callback;
 GLFWcursorposfun prev_cursor_position_callback;
 GLFWmousebuttonfun prev_mouse_button_callback;
 GLFWscrollfun prev_scroll_callback;
 glm::vec3 a = glm::normalize(glm::vec3(-.5, 0, -1));
-glm::vec3 b = {0, 0, -1};
+glm::vec3 b = { 0, 0, -1 };
+
 
 void framebuffer_size_callback(GLFWwindow *window, int width, int height)
 {
@@ -57,51 +70,53 @@ static void glfw_error_callback(int error, const char *description)
 
 void move_character(const glm::vec3 &direction)
 {
+    if (!mouseActive)
+        return;
     auto pos = camera.get_pos();
     pos += camera.get_movement(direction) * (float)(CAMERA_SPEED * deltaTime);
     camera.set_position(pos);
 }
-
-static void cursor_position_callback(GLFWwindow *window, double xpos, double ypos)
+static void cursor_position_callback(GLFWwindow* window, double xpos, double ypos)
 {
     input.process_mouse_move(window, xpos, ypos);
     prev_cursor_position_callback(window, xpos, ypos);
 }
 
-static void mouse_button_callback(GLFWwindow *window, int button, int action, int mods)
+static void mouse_button_callback(GLFWwindow* window, int button, int action, int mods)
 {
     input.process_mouse_button(window, button, action, mods);
     prev_mouse_button_callback(window, button, action, mods);
 }
 
-static void scroll_callback(GLFWwindow *window, double xoffset, double yoffset)
+static void scroll_callback(GLFWwindow* window, double xoffset, double yoffset)
 {
     input.process_mouse_scroll(window, xoffset, yoffset);
     prev_scroll_callback(window, xoffset, yoffset);
 }
 
-IcoSphere *create_new(glm::vec3 position, glm::vec3 velocity, glm::vec3 color, float mass = 1)
+
+IcoSphere* create_new(glm::vec3 position, glm::vec3 velocity, glm::vec3 color, float mass = 10)
 {
-    IcoSphere *sphere;
+    IcoSphere* sphere;
     world->insert(sphere = new IcoSphere(position));
     sphere->create(3);
     sphere->set_shader(ShaderStore::get_shader("noLight"));
     sphere->set_material(new ColorMaterial());
     sphere->set_scale(glm::vec3(mass / 100));
-    dynamic_cast<ColorMaterial *>(sphere->get_material())->color = glm::vec4(color, 1);
+    dynamic_cast<ColorMaterial*>(sphere->get_material())->color = glm::vec4(color, 1);
     sphere->set_velocity(velocity);
     sphere->set_mass(mass);
     return sphere;
 }
 
-Cube *create_new_cube(glm::vec3 postion, glm::vec3 velocity, glm::vec3 color)
+Cube* create_new_cube(glm::vec3 postion, glm::vec3 velocity, glm::vec3 color)
 {
-    Cube *cube;
+    Cube* cube;
     world->insert(cube = new Cube(postion));
     cube->set_shader(ShaderStore::get_shader("noLight"));
     cube->set_material(new ColorMaterial());
     cube->set_scale(glm::vec3(0.1f));
-    dynamic_cast<ColorMaterial *>(cube->get_material())->color = glm::vec4(color, 1);
+    dynamic_cast<ColorMaterial*>(cube->get_material())->color = glm::vec4(color, 1);
     cube->set_velocity(velocity);
     cube->get_collider()->set_channel(CollisionChannel::STATIC);
     return cube;
@@ -133,7 +148,7 @@ int Window::init()
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 1);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
-    window = glfwCreateWindow(width, height, "OpenGLEngineCpp", nullptr, nullptr);
+    window = glfwCreateWindow(width, height, "GameEngineProject", nullptr, nullptr);
     if (window == nullptr)
     {
         std::cout << "Failed to create GLFW window" << std::endl;
@@ -141,6 +156,8 @@ int Window::init()
         return -1;
     }
     glfwMakeContextCurrent(window);
+    // disable vsync
+    glfwSwapInterval(0);
 
     if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress))
     {
@@ -151,7 +168,7 @@ int Window::init()
 
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
-    ImGuiIO &io = ImGui::GetIO();
+    ImGuiIO& io = ImGui::GetIO();
     (void)io;
     io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
     io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;
@@ -163,7 +180,9 @@ int Window::init()
     init_listeners();
 
     glViewport(0, 0, width, height);
+    glEnable(GL_CULL_FACE);
     glEnable(GL_DEPTH_TEST);
+    glDepthMask(GL_TRUE);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     glEnable(GL_BLEND);
     glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
@@ -171,21 +190,36 @@ int Window::init()
     prev_cursor_position_callback = glfwSetCursorPosCallback(window, cursor_position_callback);
     prev_mouse_button_callback = glfwSetMouseButtonCallback(window, mouse_button_callback);
     prev_scroll_callback = glfwSetScrollCallback(window, scroll_callback);
-    ShaderStore::add_params_callback([](const Shader *shader)
-                                     { camera.set_shader(shader);
-                                       input.set_shader(shader); });
+    ShaderStore::add_params_callback([](const Shader* shader)
+        { camera.set_shader(shader);
+    input.set_shader(shader); });
     ShaderStore::load_shaders();
-    Renderable::setup();
+    GameObjectBase::setup();
     world = new World();
-    world->set_bounds(glm::vec3(0, 0, 0), glm::vec3(10, 1, 10));
+    world->set_bounds(glm::vec3(0, 0, 0), glm::vec3(10, 10, 10));
     debugLine = new Line();
     debugLine->set_shader(ShaderStore::get_shader("noLight"));
     debugLine->set_material(new ColorMaterial());
-    dynamic_cast<ColorMaterial *>(debugLine->get_material())->color = glm::vec4(0.0f, 1.0f, 0.0f, 0.5f);
+    dynamic_cast<ColorMaterial*>(debugLine->get_material())->color = glm::vec4(1.0f, 0.0f, 0.0f, 0.5f);
     debugArrow = new Arrow();
     debugArrow->set_shader(ShaderStore::get_shader("noLight"));
     debugArrow->set_material(new ColorMaterial());
-    dynamic_cast<ColorMaterial *>(debugArrow->get_material())->color = glm::vec4(0.0f, 1.0f, 0.0f, 0.5f);
+    dynamic_cast<ColorMaterial*>(debugArrow->get_material())->color = glm::vec4(0.0f, 1.0f, 0.0f, 0.5f);
+    auto bsplineSurface = new BSplineSurface(2, 2, 3, 3,
+        { 0, 0, 0, 1, 1, 1 },
+        { 0, 0, 0, 1, 1, 1 }, { 
+            {glm::vec3(0, 0, 0), glm::vec3(1, 0, 0), glm::vec3(2, 0, 0), 
+             glm::vec3(0, 0, 1), glm::vec3(1, 2, 1), glm::vec3(2, 0, 1), 
+             glm::vec3(0, 0, 2), glm::vec3(1, 0, 2), glm::vec3(2, 0, 2)} });
+    bsplineSurface->set_shader(ShaderStore::get_shader("noLight"));
+    bsplineSurface->set_material(new ColorMaterial());
+    dynamic_cast<ColorMaterial*>(bsplineSurface->get_material())->color = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f);
+    world->insert(bsplineSurface);
+ /*    auto pointCloud = new PointCloud("./pointcloud/small.las");
+     pointCloud->set_shader(ShaderStore::get_shader("noLight"));
+     pointCloud->set_material(new ColorMaterial());
+     dynamic_cast<ColorMaterial *>(pointCloud->get_material())->color = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f);
+     world->insert(pointCloud);*/
     return 0;
 }
 
@@ -194,7 +228,7 @@ void Window::init_listeners()
     input.attach_keyboard_listener(
         GLFW_KEY_F, []()
         {
-            glPolygonMode(GL_FRONT_AND_BACK, wireframe ? GL_FILL : GL_LINE); 
+            glPolygonMode(GL_FRONT_AND_BACK, wireframe ? GL_FILL : GL_LINE);
             wireframe = !wireframe; },
         false);
     input.attach_keyboard_listener(
@@ -226,13 +260,9 @@ void Window::init_listeners()
         { move_character(glm::vec3(0, -1, 0)); },
         true);
     input.attach_keyboard_listener(
-        GLFW_KEY_R, []()
-        { spawn_random(); },
-        false);
-    input.attach_keyboard_listener(
         GLFW_KEY_ESCAPE, [&]()
-        { 
-            if(mouseActive)
+        {
+            if (mouseActive)
                 glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
             else
                 glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
@@ -243,7 +273,7 @@ void Window::init_listeners()
             mouseActive = !mouseActive; },
         false);
     input.attach_mouse_listener([](MouseInput input)
-                                { if(mouseActive) camera.process_mouse(input.x_pos_offset, input.y_pos_offset); });
+        { if (mouseActive) camera.process_mouse(input.x_pos_offset, input.y_pos_offset); });
 }
 
 void Window::update() const
@@ -311,6 +341,22 @@ void Window::update() const
     ImGui::TextUnformatted("esc - toggle camera control");
     ImGui::TextUnformatted("Mouse - rotate camera");
     ImGui::End();
+
+    ImGui::Begin("Camera");
+    ImGui::SetWindowSize(ImVec2(311, 235), ImGuiCond_FirstUseEver);
+    ImGui::Text("Position: (%.2f, %.2f, %.2f)", camera.get_pos().x, camera.get_pos().y, camera.get_pos().z);
+    ImGui::Text("Front: (%.2f, %.2f, %.2f)", camera.get_front().x, camera.get_front().y, camera.get_front().z);
+    ImGui::Text("Up: (%.2f, %.2f, %.2f)", camera.get_up().x, camera.get_up().y, camera.get_up().z);
+    ImGui::Text("Right: (%.2f, %.2f, %.2f)", camera.get_right().x, camera.get_right().y, camera.get_right().z);
+    ImGui::End();
+
+    ImGui::Begin("World");
+    ImGui::SetWindowSize(ImVec2(311, 235), ImGuiCond_FirstUseEver);
+    ImGui::Text("Objects after culling: %d", drawCounts.objects_culled);
+    ImGui::Text("Objects filtered: %d", drawCounts.objects_filtered);
+    ImGui::Text("Objects drawn: %d", drawCounts.objects_drawn);
+    ImGui::End();
+    frustum = Frustum::create_from_camera_and_input(&camera, &input);
 }
 
 void Window::render() const
@@ -321,9 +367,12 @@ void Window::render() const
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
     if (drawDebug)
+    {
         world->draw_debug(debugLine, debugArrow);
+        debugSphere->draw();
+    }
 
-    world->draw();
+    drawCounts = world->draw(&frustum);
 
     ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 

@@ -1,10 +1,13 @@
 #include "ColliderHandler.h"
 #include "AABB.h"
+#include "ConvexHull.h"
 #include "SphereCollider.h"
+#include "../objects/base/GameObject.h"
 
-static glm::vec3 get_collision_normal(AABB *a, AABB *b)
+static glm::vec3 get_collision_normal(AABB* a, AABB* b)
 {
-    glm::vec3 normal = b->center - a->center;
+    auto b_center = b->get_center();
+    glm::vec3 normal = b_center - a->center;
     float x_overlap = a->extent.x + b->extent.x - abs(normal.x);
     float y_overlap = a->extent.y + b->extent.y - abs(normal.y);
     float z_overlap = a->extent.z + b->extent.z - abs(normal.z);
@@ -26,34 +29,29 @@ static glm::vec3 get_collision_normal(AABB *a, AABB *b)
     return glm::normalize(normal);
 }
 
-static glm::vec3 get_collision_normal(AABB *a, SphereCollider *b)
+static glm::vec3 get_collision_normal(AABB* a, SphereCollider* b)
 {
+    auto b_center = b->get_center();
     glm::vec3 closest = glm::vec3(
-        glm::clamp(b->get_center().x, a->center.x - a->extent.x, a->center.x + a->extent.x),
-        glm::clamp(b->get_center().y, a->center.y - a->extent.y, a->center.y + a->extent.y),
-        glm::clamp(b->get_center().z, a->center.z - a->extent.z, a->center.z + a->extent.z));
-    glm::vec3 normal = glm::vec3(0);
-	if (abs(closest.x) > abs(closest.y) && abs(closest.x) > abs(closest.z))
-	{
-		normal.x = closest.x;
-	}
-	else if (abs(closest.y) > abs(closest.x) && abs(closest.y) > abs(closest.z))
-	{
-		normal.y = closest.y;
-	}
-	else
-	{
-		normal.z = closest.z;
-	}
-    return glm::normalize(normal);
+        glm::clamp(b_center.x, a->center.x - a->extent.x, a->center.x + a->extent.x),
+        glm::clamp(b_center.y, a->center.y - a->extent.y, a->center.y + a->extent.y),
+        glm::clamp(b_center.z, a->center.z - a->extent.z, a->center.z + a->extent.z));
+    glm::vec3 normal = glm::vec3(0.0f);
+    if (abs(closest.x) > abs(closest.y) && abs(closest.x) > abs(closest.z))
+        normal.x = closest.x;
+    else if (abs(closest.y) > abs(closest.x) && abs(closest.y) > abs(closest.z))
+        normal.y = closest.y;
+    else
+        normal.z = closest.z;
+    return normalize(normal);
 }
 
-static glm::vec3 get_collision_normal(SphereCollider *a, AABB *b)
+static glm::vec3 get_collision_normal(SphereCollider* a, AABB* b)
 {
     return -get_collision_normal(b, a);
 }
 
-static glm::vec3 get_collision_normal(SphereCollider *a, SphereCollider *b)
+static glm::vec3 get_collision_normal(SphereCollider* a, SphereCollider* b)
 {
     glm::vec3 normal = a->get_center() - b->get_center();
     float distance = glm::length(normal);
@@ -64,12 +62,12 @@ static glm::vec3 get_collision_normal(SphereCollider *a, SphereCollider *b)
     return glm::normalize(normal);
 }
 
-glm::vec3 ColliderHandler::get_collision_normal(ColliderBase *a, ColliderBase *b)
+glm::vec3 ColliderHandler::get_collision_normal(ColliderBase* a, ColliderBase* b)
 {
-    auto sca = dynamic_cast<SphereCollider *>(a);
-    auto scb = dynamic_cast<SphereCollider *>(b);
-    auto aba = dynamic_cast<AABB *>(a);
-    auto abb = dynamic_cast<AABB *>(b);
+    auto sca = dynamic_cast<SphereCollider*>(a);
+    auto scb = dynamic_cast<SphereCollider*>(b);
+    auto aba = dynamic_cast<AABB*>(a);
+    auto abb = dynamic_cast<AABB*>(b);
     if (sca != nullptr && scb != nullptr)
     {
         return get_collision_normal(sca, scb);
@@ -91,39 +89,39 @@ glm::vec3 ColliderHandler::get_collision_normal(ColliderBase *a, ColliderBase *b
     throw;
 }
 
-CollisionType ColliderHandler::get_collision_type(ColliderBase *a, ColliderBase *b)
+CollisionType ColliderHandler::get_collision_type(ColliderBase* a, ColliderBase* b)
 {
-    auto sca = dynamic_cast<SphereCollider *>(a);
-    auto scb = dynamic_cast<SphereCollider *>(b);
-    auto aba = dynamic_cast<AABB *>(a);
-    auto abb = dynamic_cast<AABB *>(b);
+    auto sca = dynamic_cast<SphereCollider*>(a);
+    auto scb = dynamic_cast<SphereCollider*>(b);
+    auto aba = dynamic_cast<AABB*>(a);
+    auto abb = dynamic_cast<AABB*>(b);
     if (sca != nullptr && scb != nullptr)
     {
-        return {sca->contains(*scb), get_collision_normal(sca, scb), a, b};
+        return { sca->contains(*scb), get_collision_normal(sca, scb), a, b };
     }
     else if (sca != nullptr && abb != nullptr)
     {
-        return {sca->contains(*abb), get_collision_normal(sca, abb), a, b};
+        return { sca->contains(*abb), get_collision_normal(sca, abb), a, b };
     }
     else if (aba != nullptr && scb != nullptr)
     {
-        return {aba->contains(*scb), get_collision_normal(aba, scb), a, b};
+        return { aba->contains(*scb), get_collision_normal(aba, scb), a, b };
     }
     else if (aba != nullptr && abb != nullptr)
     {
-        return {aba->contains(*abb), get_collision_normal(aba, abb), a, b};
+        return { aba->contains(*abb), get_collision_normal(aba, abb), a, b };
     }
     auto at = type_name<decltype(a)>();
     auto bt = type_name<decltype(b)>();
     throw;
 }
 
-bool ColliderHandler::contains(ColliderBase *a, ColliderBase *b)
+bool ColliderHandler::contains(ColliderBase* a, ColliderBase* b)
 {
-    auto sca = dynamic_cast<SphereCollider *>(a);
-    auto scb = dynamic_cast<SphereCollider *>(b);
-    auto aba = dynamic_cast<AABB *>(a);
-    auto abb = dynamic_cast<AABB *>(b);
+    auto sca = dynamic_cast<SphereCollider*>(a);
+    auto scb = dynamic_cast<SphereCollider*>(b);
+    auto aba = dynamic_cast<AABB*>(a);
+    auto abb = dynamic_cast<AABB*>(b);
     if (sca != nullptr && scb != nullptr)
         return sca->contains(*scb);
     else if (sca != nullptr && abb != nullptr)

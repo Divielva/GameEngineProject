@@ -10,16 +10,16 @@ template <typename T>
 class QuadTree
 {
 private:
-    QuadTree *northWest;
-    QuadTree *northEast;
-    QuadTree *southWest;
-    QuadTree *southEast;
-    QuadTree *parent;
+    QuadTree* northWest;
+    QuadTree* northEast;
+    QuadTree* southWest;
+    QuadTree* southEast;
+    QuadTree* parent;
 
     AABB boundary;
     bool recalculated = false;
 
-    Node<T> *node = nullptr;
+    Node<T>* node = nullptr;
 
     void subdivide()
     {
@@ -95,7 +95,7 @@ private:
 
 public:
     QuadTree() : northWest(nullptr), northEast(nullptr), southWest(nullptr), southEast(nullptr) {
-                 };
+    };
     ~QuadTree()
     {
         delete northWest;
@@ -158,7 +158,7 @@ public:
         return result;
     };
 
-    void query_range(const AABB &range, std::vector<T> &found)
+    void query_range(const AABB& range, std::vector<T>& found)
     {
         if (!boundary.contains(range))
             return;
@@ -174,7 +174,7 @@ public:
         southWest->query_range(range, found);
         southEast->query_range(range, found);
     };
-    void query_range(const AABB &range, std::vector<T> &found, std::function<bool(const T &)> filter)
+    void query_range(const AABB& range, std::vector<T>& found, std::function<bool(const T&)> filter)
     {
         if (!boundary.contains(range))
             return;
@@ -190,7 +190,7 @@ public:
         southWest->query_range(range, found, filter);
         southEast->query_range(range, found, filter);
     };
-    void draw_debug(Line *line)
+    void draw_debug(Line* line)
     {
         boundary.draw_debug(line);
 
@@ -203,39 +203,10 @@ public:
         southEast->draw_debug(line);
     };
     AABB get_bounds() const { return boundary; }
-    void set_bounds(const glm::vec3 &center, const glm::vec3 &extent)
+    void set_bounds(const glm::vec3& center, const glm::vec3& extent)
     {
         boundary.center = center;
         boundary.extent = extent;
     }
     void recalculate();
-
-    void clear()
-    {
-        if (node != nullptr)
-        {
-            delete node;
-            node = nullptr;
-        }
-        if (northWest != nullptr)
-        {
-            delete northWest;
-            northWest = nullptr;
-        }
-        if (northEast != nullptr)
-        {
-            delete northEast;
-            northEast = nullptr;
-        }
-        if (southWest != nullptr)
-        {
-            delete southWest;
-            southWest = nullptr;
-        }
-        if (southEast != nullptr)
-        {
-            delete southEast;
-            southEast = nullptr;
-        }
-    }
 };

@@ -1,4 +1,4 @@
-#include "SceneUpdatableObject.h"
+#include "GameObject.h"
 #include <glm/geometric.hpp>
 
 #include "../../colliders/ColliderHandler.h"
@@ -9,22 +9,21 @@
 /// @param b the object normal to retreive the new vector from
 glm::vec3 get_new_collision_vector(const glm::vec3 a, const glm::vec3 b)
 {
-	auto angle = glm::acos(glm::dot(a, b));
-	auto axis = glm::normalize(glm::cross(a, b));
+    auto angle = glm::acos(glm::dot(a, b));
+    auto axis = glm::normalize(glm::cross(a, b));
     auto axisNan = glm::isnan(axis);
     if (axisNan.x || axisNan.y || axisNan.z)
     {
         // a and b are parallel and therefor the new vector should be the negative of a
         return -a;
     }
-	auto q = glm::angleAxis(angle, axis);
-	return glm::normalize(q * -b);
-
+    auto q = glm::angleAxis(angle, axis);
+    return glm::normalize(q * -b);
 }
 
 constexpr float restitution = 1.0f;
 
-std::tuple<glm::vec3, glm::vec3> get_new_velocity(Physics *a, Physics *b)
+std::tuple<glm::vec3, glm::vec3> get_new_velocity(Physics* a, Physics* b)
 {
     auto pa = a->get_parent()->get_collider();
     auto pb = b->get_parent()->get_collider();
@@ -56,19 +55,15 @@ std::tuple<glm::vec3, glm::vec3> get_new_velocity(Physics *a, Physics *b)
         auto p1 = a->get_parent()->get_position();
         auto p2 = b->get_parent()->get_position();
 
-        auto n = normalize((p1 - p2) / glm::length(p1 - p2));
-        auto vr = abs(v1) - abs(v2);
-        auto vn = (vr * n) * n;
-
-        auto v1n = v1 - (m2 * 2 / (m1 + m2)) * (dot(v1 - v2, p1 - p2) / powf(length(p1 - p2), 2)) * (p1 - p2);//(m1 - m2) / (m1 + m2) * v1 + (2 * m2) / (m1 + m2) * v2;
-        auto v2n = v2 - (m1 * 2 / (m2 + m1)) * (dot(v2 - v1, p2 - p1) / powf(length(p2 - p1), 2)) * (p2 - p1); //(m2 - m1) / (m1 + m2) * v2 + (2 * m1) / (m1 + m2) * v1;
+        auto v1n = v1 - (m2 * 2 / (m1 + m2)) * (dot(v1 - v2, p1 - p2) / powf(length(p1 - p2), 2)) * (p1 - p2);
+        auto v2n = v2 - (m1 * 2 / (m2 + m1)) * (dot(v2 - v1, p2 - p1) / powf(length(p2 - p1), 2)) * (p2 - p1);
         new_velocity = std::make_tuple(v1n, v2n);
     }
 
     return new_velocity;
 }
 
-void Physics::apply_collision(Physics *other)
+void Physics::apply_collision(Physics* other)
 {
     const auto t = get_new_velocity(this, other);
     set_velocity(std::get<0>(t));

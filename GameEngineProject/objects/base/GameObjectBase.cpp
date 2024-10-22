@@ -1,8 +1,8 @@
-#include "Renderable.h"
+#include "GameObjectBase.h"
 
 unsigned VBO, VAO, EBO;
 
-void Renderable::draw() const
+void GameObjectBase::draw() const
 {
     pre_render();
     glBindVertexArray(VAO);
@@ -11,7 +11,7 @@ void Renderable::draw() const
     glBindVertexArray(0);
 }
 
-void Renderable::setup()
+void GameObjectBase::setup()
 {
     glGenVertexArrays(1, &VAO);
     glGenBuffers(1, &VBO);
@@ -23,21 +23,21 @@ void Renderable::setup()
 
     // position attribute
     glEnableVertexAttribArray(0);
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void *)0);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)0);
     // normal attribute
     glEnableVertexAttribArray(1);
-    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void *)offsetof(Vertex, normal));
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, normal));
     // texture coord attribute
     glEnableVertexAttribArray(2);
-    glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void *)offsetof(Vertex, texCoords));
+    glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, texCoords));
 
     glBindVertexArray(0);
 }
 
-Vertex Renderable::get_min_vertex() const
+Vertex GameObjectBase::get_min_vertex() const
 {
     Vertex min = vertices[0];
-    for (auto &vertex : vertices)
+    for (auto& vertex : vertices)
     {
         if (vertex.position.x < min.position.x)
         {
@@ -55,10 +55,10 @@ Vertex Renderable::get_min_vertex() const
     return min;
 }
 
-Vertex Renderable::get_max_vertex() const
+Vertex GameObjectBase::get_max_vertex() const
 {
     Vertex max = vertices[0];
-    for (auto &vertex : vertices)
+    for (auto& vertex : vertices)
     {
         if (vertex.position.x > max.position.x)
         {

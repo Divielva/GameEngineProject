@@ -6,22 +6,22 @@
 #include "../../Material.h"
 #include <glad/glad.h>
 
-class Renderable
+class GameObjectBase
 {
 private:
     std::vector<Vertex> vertices;
     std::vector<unsigned> indices;
     // Shaders can be shared between objects
-    Shader *shader = nullptr;
+    Shader* shader = nullptr;
     // Materials are per object currently, TODO make a shared library for materials to be shared between objects
-    Material *material = nullptr;
+    Material* material = nullptr;
     GLenum mode = GL_TRIANGLES;
     Vertex bounding_box[2];
 
 public:
-    Renderable(std::vector<Vertex> vertices, std::vector<unsigned> indices) : vertices(vertices), indices(indices) {};
-    Renderable() {};
-    ~Renderable()
+    GameObjectBase(std::vector<Vertex> vertices, std::vector<unsigned> indices) : vertices(vertices), indices(indices) {};
+    GameObjectBase() {};
+    ~GameObjectBase()
     {
         vertices.clear();
         indices.clear();
@@ -30,11 +30,11 @@ public:
 
     void update_vertices(std::vector<Vertex> vertices) { this->vertices = vertices; }
     void update_indices(std::vector<unsigned> indices) { this->indices = indices; }
-    void set_shader(Shader *shader) { this->shader = shader; }
+    void set_shader(Shader* shader) { this->shader = shader; }
     void set_mode(GLenum mode) { this->mode = mode; }
-    void set_material(Material *material) { this->material = material; }
-    Material *get_material() const { return material; }
-    Shader *get_shader() const { return shader; }
+    void set_material(Material* material) { this->material = material; }
+    Material* get_material() const { return material; }
+    Shader* get_shader() const { return shader; }
     virtual void pre_render() const
     {
         shader->use();
