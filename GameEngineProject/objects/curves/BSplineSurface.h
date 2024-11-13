@@ -1,8 +1,10 @@
 #pragma once
 
 #include "../base/GameObject.h"
+#include "../../Window.h"
 #include "BSpline.h"
 #include <map>
+#include <format>
 
 class BSplineSurface : public GameObject
 {
@@ -20,50 +22,21 @@ private:
         glm::vec3 bv;
         glm::vec3 bu;
 
-        float bu_1_2 = 0, bu_3_2 = 0, bv_1_2 = 0, bv_3_2 = 0;
+        auto w12 = (tu - knot_vector_u[iu - 1]) / (knot_vector_u[iu + 1] - knot_vector_u[iu - 1]);
+        auto w22 = (tu - knot_vector_u[iu]) / (knot_vector_u[iu + 2] - knot_vector_u[iu]);
+        auto w11 = (tu - knot_vector_u[iu]) / (knot_vector_u[iu + 1] - knot_vector_u[iu]);
 
-        while (tu > 1)
-            tu -= 1;
+        bu.x = (1 - w11) * (1 - w12);
+        bu.z = w11 * w22;
+        bu.y = 1 - bu.x - bu.z;
 
-        // TODO: figure out why this math doesn't work but is the correct math from the theory
-        // if (tu > 1)
-        // {
-        //     bu_1_2 = (knot_vector_u[iu + 1] - tu) / (knot_vector_u[iu + 1] - knot_vector_u[iu]) * (knot_vector_u[iu + 1] - tu) / (knot_vector_u[iu + 1] - knot_vector_u[iu]);
-        //     bu_3_2 = (tu - knot_vector_u[iu]) / (knot_vector_u[iu + 1] - knot_vector_u[iu]) * (tu - knot_vector_u[iu + 2]) / (knot_vector_u[iu + 1] - knot_vector_u[iu]);
-        // }
-        // else
-        // {
-        bu_1_2 = powf(1 - tu, 2);
-        bu_3_2 = powf(tu, 2);
-        // }
+        w12 = (tv - knot_vector_v[iv - 1]) / (knot_vector_v[iv + 1] - knot_vector_v[iv - 1]);
+        w22 = (tv - knot_vector_v[iv]) / (knot_vector_v[iv + 2] - knot_vector_v[iv]);
+        w11 = (tv - knot_vector_v[iv]) / (knot_vector_v[iv + 1] - knot_vector_v[iv]);
 
-        while (tv > 1)
-            tv -= 1;
-
-        // TODO: see todo above
-        // if (tv > 1)
-        // {
-        //     bv_1_2 = (knot_vector_v[iv + 1] - tv) / (knot_vector_v[iv + 1] - knot_vector_v[iv]) * (knot_vector_v[iv + 1] - tv) / (knot_vector_v[iv + 1] - knot_vector_v[iv]);
-        //     bv_3_2 = (tv - knot_vector_v[iv]) / (knot_vector_v[iv + 1] - knot_vector_v[iv]) * (tv - knot_vector_v[iv + 2]) / (knot_vector_v[iv + 1] - knot_vector_v[iv]);
-        // }
-        // else
-        // {
-        bv_1_2 = powf(1 - tv, 2);
-        bv_3_2 = powf(tv, 2);
-        // }
-
-        if (isinf(bu_1_2))
-            bu_1_2 = 0;
-        if (isinf(bu_3_2))
-            bu_3_2 = 0;
-
-        if (isinf(bv_1_2))
-            bv_1_2 = 0;
-        if (isinf(bv_3_2))
-            bv_3_2 = 0;
-
-        bu = glm::vec3(bu_1_2, 1 - bu_1_2 - bu_3_2, bu_3_2);
-        bv = glm::vec3(bv_1_2, 1 - bv_1_2 - bv_3_2, bv_3_2);
+        bv.x = (1 - w11) * (1 - w12);
+        bv.z = w11 * w22;
+        bv.y = 1 - bv.x - bv.z;
 
         return std::make_pair(bu, bv);
     }
@@ -102,7 +75,7 @@ private:
     }
 
 public:
-    BSplineSurface(int degree_u, int degree_v, int num_points_u, int num_points_v, std::vector<float> knot_vector_u, std::vector<float> knot_vector_v, std::vector<glm::vec3> points) : GameObject()
+    BSplineSurface(int degree_u, int degree_v, int num_points_u, int num_points_v, std::vector<float> knot_vector_u, std::vector<float> knot_vector_v, std::vector<glm::vec3> points, float spacing = 0.1f) : GameObject()
     {
         this->degree_u = degree_u;
         this->degree_v = degree_v;
@@ -112,7 +85,7 @@ public:
         this->knot_vector_v = knot_vector_v;
         this->points = points;
 
-        computeSurface();
+        computeSurface(spacing);
     }
 
     void computeSurface(float spacing = 0.1f)
@@ -129,8 +102,8 @@ public:
                 float u = i * spacing;
                 float v = j * spacing;
 
-                auto iu = find_knot_interval(u - 0.0001, degree_u, num_points_u, knot_vector_u);
-                auto iv = find_knot_interval(v - 0.0001, degree_v, num_points_v, knot_vector_v);
+                auto iu = find_knot_interval(u, degree_u, num_points_u, knot_vector_u);
+                auto iv = find_knot_interval(v, degree_v, num_points_v, knot_vector_v);
 
                 auto coeff_pair = b2(u, v, iu, iv);
 
@@ -138,20 +111,34 @@ public:
 
                 vertices.push_back(Vertex{ p, glm::vec3(0, 1, 0), glm::vec2(0, 0) });
             }
+            glfwSetWindowTitle(Window::glfWindow, std::format("Processing BSplineSurface vertexes: {:.2f}%", (float)(i * num_v) / (num_v * num_v) * 100).c_str());
         }
 
         for (int i = 0; i < num_u - 1; i++)
         {
             for (int j = 0; j < num_v - 1; j++)
             {
-                indices.push_back(i * num_v + j);
-                indices.push_back(i * num_v + j + 1);
-                indices.push_back((i + 1) * num_v + j + 1);
+                auto p0 = i * num_v + j;
+                auto p1 = i * num_v + j + 1;
+                auto p2 = (i + 1) * num_v + j + 1;
+                auto p3 = (i + 1) * num_v + j;
+                auto n1 = glm::normalize(glm::cross(vertices[p1].position - vertices[p0].position, vertices[p2].position - vertices[p0].position));
+                auto n2 = glm::normalize(glm::cross(vertices[p2].position - vertices[p0].position, vertices[p3].position - vertices[p0].position));
+                indices.push_back(p0);
+                indices.push_back(p1);
+                indices.push_back(p2);
+                vertices[p0].normal = n1;
+                vertices[p1].normal = n1;
+                vertices[p2].normal = n1;
 
-                indices.push_back(i * num_v + j);
-                indices.push_back((i + 1) * num_v + j + 1);
-                indices.push_back((i + 1) * num_v + j);
+                indices.push_back(p0);
+                indices.push_back(p2);
+                indices.push_back(p3);
+                vertices[p0].normal = glm::normalize(n2 + vertices[p0].normal);
+                vertices[p2].normal = glm::normalize(n2 + vertices[p2].normal);
+                vertices[p3].normal = n2;
             }
+            glfwSetWindowTitle(Window::glfWindow, std::format("Processing BSplineSurface indices: {:.2f}%", (float)(i * num_v) / (num_v * num_v) * 100).c_str());
         }
 
         update_vertices(vertices);

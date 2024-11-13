@@ -22,7 +22,7 @@
 #include "objects/curves/Bezier.h"
 #include "objects/curves/BSpline.h"
 #include "objects/curves/BSplineSurface.h"
-#include "surface/PointCloud.h"
+#include "objects/surface/PointCloud.h"
 
 #define CAMERA_SPEED 2.5f
 
@@ -56,19 +56,18 @@ GLFWscrollfun prev_scroll_callback;
 glm::vec3 a = glm::normalize(glm::vec3(-.5, 0, -1));
 glm::vec3 b = { 0, 0, -1 };
 
-
-void framebuffer_size_callback(GLFWwindow *window, int width, int height)
+void framebuffer_size_callback(GLFWwindow* window, int width, int height)
 {
     glViewport(0, 0, width, height);
     // prev_framebuffer_size_callback(window, width, height);
 }
 
-static void glfw_error_callback(int error, const char *description)
+static void glfw_error_callback(int error, const char* description)
 {
     fprintf(stderr, "GLFW Error %d: %s\n", error, description);
 }
 
-void move_character(const glm::vec3 &direction)
+void move_character(const glm::vec3& direction)
 {
     if (!mouseActive)
         return;
@@ -76,6 +75,7 @@ void move_character(const glm::vec3 &direction)
     pos += camera.get_movement(direction) * (float)(CAMERA_SPEED * deltaTime);
     camera.set_position(pos);
 }
+
 static void cursor_position_callback(GLFWwindow* window, double xpos, double ypos)
 {
     input.process_mouse_move(window, xpos, ypos);
@@ -94,50 +94,6 @@ static void scroll_callback(GLFWwindow* window, double xoffset, double yoffset)
     prev_scroll_callback(window, xoffset, yoffset);
 }
 
-
-IcoSphere* create_new(glm::vec3 position, glm::vec3 velocity, glm::vec3 color, float mass = 10)
-{
-    IcoSphere* sphere;
-    world->insert(sphere = new IcoSphere(position));
-    sphere->create(3);
-    sphere->set_shader(ShaderStore::get_shader("noLight"));
-    sphere->set_material(new ColorMaterial());
-    sphere->set_scale(glm::vec3(mass / 100));
-    dynamic_cast<ColorMaterial*>(sphere->get_material())->color = glm::vec4(color, 1);
-    sphere->set_velocity(velocity);
-    sphere->set_mass(mass);
-    return sphere;
-}
-
-Cube* create_new_cube(glm::vec3 postion, glm::vec3 velocity, glm::vec3 color)
-{
-    Cube* cube;
-    world->insert(cube = new Cube(postion));
-    cube->set_shader(ShaderStore::get_shader("noLight"));
-    cube->set_material(new ColorMaterial());
-    cube->set_scale(glm::vec3(0.1f));
-    dynamic_cast<ColorMaterial*>(cube->get_material())->color = glm::vec4(color, 1);
-    cube->set_velocity(velocity);
-    cube->get_collider()->set_channel(CollisionChannel::STATIC);
-    return cube;
-}
-
-void spawn_random()
-{
-    auto pos = glm::vec3(0, 0, 0);
-    auto vel = glm::vec3(0, 0, 0);
-    auto color = glm::vec3(0, 0, 0);
-    auto mass = 1.0f;
-    for (int i = 0; i < spawnCount; i++)
-    {
-        pos = glm::vec3(rand() % 2000, 0, rand() % 2000) / 100.0f - glm::vec3(10, 0, 10);
-        vel = glm::vec3(rand() % 1000, 0, rand() % 1000) / 100.0f;
-        color = glm::vec3(rand() % 255, rand() % 255, rand() % 255) / 255.0f;
-        mass = (rand() % 25) + 1;
-		create_new(pos, vel, color, mass);
-    }
-}
-
 int Window::init()
 {
     srand(time(NULL));
@@ -148,14 +104,14 @@ int Window::init()
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 1);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
-    window = glfwCreateWindow(width, height, "GameEngineProject", nullptr, nullptr);
-    if (window == nullptr)
+    glfWindow = glfwCreateWindow(width, height, "OpenGLEngineCpp", nullptr, nullptr);
+    if (glfWindow == nullptr)
     {
         std::cout << "Failed to create GLFW window" << std::endl;
         glfwTerminate();
         return -1;
     }
-    glfwMakeContextCurrent(window);
+    glfwMakeContextCurrent(glfWindow);
     // disable vsync
     glfwSwapInterval(0);
 
@@ -166,6 +122,8 @@ int Window::init()
         return -1;
     }
 
+    glfwSetWindowTitle(glfWindow, "Starting up ImGui context");
+
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
     ImGuiIO& io = ImGui::GetIO();
@@ -174,27 +132,39 @@ int Window::init()
     io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;
 
     ImGui::StyleColorsDark();
-    ImGui_ImplGlfw_InitForOpenGL(window, true);
+    ImGui_ImplGlfw_InitForOpenGL(glfWindow, true);
     ImGui_ImplOpenGL3_Init("#version 410");
 
+    glfwSetWindowTitle(glfWindow, "Initializing listeners");
     init_listeners();
 
+    glfwSetWindowTitle(glfWindow, "Setting up OpenGL");
     glViewport(0, 0, width, height);
     glEnable(GL_CULL_FACE);
     glEnable(GL_DEPTH_TEST);
     glDepthMask(GL_TRUE);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     glEnable(GL_BLEND);
-    glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
-    prev_framebuffer_size_callback = glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
-    prev_cursor_position_callback = glfwSetCursorPosCallback(window, cursor_position_callback);
-    prev_mouse_button_callback = glfwSetMouseButtonCallback(window, mouse_button_callback);
-    prev_scroll_callback = glfwSetScrollCallback(window, scroll_callback);
+    glfwSetInputMode(glfWindow, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+
+    glfwSetWindowTitle(glfWindow, "Setting up internal callbacks");
+    prev_framebuffer_size_callback = glfwSetFramebufferSizeCallback(glfWindow, framebuffer_size_callback);
+    prev_cursor_position_callback = glfwSetCursorPosCallback(glfWindow, cursor_position_callback);
+    prev_mouse_button_callback = glfwSetMouseButtonCallback(glfWindow, mouse_button_callback);
+    prev_scroll_callback = glfwSetScrollCallback(glfWindow, scroll_callback);
+
+    glfwSetWindowTitle(glfWindow, "Loading shaders");
     ShaderStore::add_params_callback([](const Shader* shader)
         { camera.set_shader(shader);
+    lightManager.set_shader(shader);
+    shadowProcessor.set_shader(shader);
     input.set_shader(shader); });
     ShaderStore::load_shaders();
+
+    glfwSetWindowTitle(glfWindow, "Setting up buffers");
     GameObjectBase::setup();
+
+    glfwSetWindowTitle(glfWindow, "Setting up world and debug objects");
     world = new World();
     world->set_bounds(glm::vec3(0, 0, 0), glm::vec3(10, 10, 10));
     debugLine = new Line();
@@ -205,31 +175,23 @@ int Window::init()
     debugArrow->set_shader(ShaderStore::get_shader("noLight"));
     debugArrow->set_material(new ColorMaterial());
     dynamic_cast<ColorMaterial*>(debugArrow->get_material())->color = glm::vec4(0.0f, 1.0f, 0.0f, 0.5f);
+    debugSphere = new IcoSphere();
+    debugSphere->create(3);
+    debugSphere->set_shader(ShaderStore::get_shader("noLight"));
+    debugSphere->set_material(new ColorMaterial());
+    // debugSphere->set_scale(glm::vec3(0.1f));
+    dynamic_cast<ColorMaterial*>(debugSphere->get_material())->color = glm::vec4(0.0f, 0.0f, 1.0f, 0.5f);
 
-    //Obligatory 2 VSIM beneath here
-
-    //================================================================================
-    //Bspline Surface for obligatory task 2 part 1
-    //================================================================================
-    auto bsplineSurface = new BSplineSurface(2, 2, 3, 3,
-        { 0, 0, 0, 1, 1, 1 },
-        { 0, 0, 0, 1, 1, 1 }, { 
-            {glm::vec3(0, 0, 0), glm::vec3(1, 0, 0), glm::vec3(2, 0, 0), 
-             glm::vec3(0, 0, 1), glm::vec3(1, 2, 1), glm::vec3(2, 0, 1), 
-             glm::vec3(0, 0, 2), glm::vec3(1, 0, 2), glm::vec3(2, 0, 2)} });
+    glfwSetWindowTitle(glfWindow, "Setting up point cloud surface");
+    auto pointCloud = new PointCloud("./pointcloud/small.las");
+    auto bsplineSurface = pointCloud->convert_to_surface();
+    delete pointCloud;
     bsplineSurface->set_shader(ShaderStore::get_shader("noLight"));
     bsplineSurface->set_material(new ColorMaterial());
     dynamic_cast<ColorMaterial*>(bsplineSurface->get_material())->color = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f);
     world->insert(bsplineSurface);
 
-    //================================================================================
-    //Obligatory task 2 part 2, visualizing a pointcloud of data taken from a las file
-    //================================================================================
-    //auto pointCloud = new PointCloud("./pointcloud/small.las");
-    //pointCloud->set_shader(ShaderStore::get_shader("noLight"));
-    //pointCloud->set_material(new ColorMaterial());
-    //dynamic_cast<ColorMaterial *>(pointCloud->get_material())->color = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f);
-    //world->insert(pointCloud);
+    glfwSetWindowTitle(glfWindow, "GameEngineProject");
     return 0;
 }
 
@@ -273,13 +235,13 @@ void Window::init_listeners()
         GLFW_KEY_ESCAPE, [&]()
         {
             if (mouseActive)
-                glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+                glfwSetInputMode(glfWindow, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
             else
-                glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+                glfwSetInputMode(glfWindow, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 
             double xpos, ypos;
-            glfwGetCursorPos(window, &xpos, &ypos);
-            input.process_mouse_move(window, xpos, ypos, true);
+            glfwGetCursorPos(glfWindow, &xpos, &ypos);
+            input.process_mouse_move(glfWindow, xpos, ypos, true);
             mouseActive = !mouseActive; },
         false);
     input.attach_mouse_listener([](MouseInput input)
@@ -307,7 +269,7 @@ void Window::update() const
     }
     fps = sum / 100;
     glfwPollEvents();
-    input.process_keyboard(window, deltaTime);
+    input.process_keyboard(glfWindow, deltaTime);
     if (lastWorldUpdate >= minDeltaTime)
     {
         world->update(minDeltaTime);
@@ -328,21 +290,6 @@ void Window::update() const
     ImGui::Begin("Debug");
     ImGui::SetWindowSize(ImVec2(311, 235), ImGuiCond_FirstUseEver);
     ImGui::Text("FPS: %.1f", fps);
-    ImGui::Separator();
-    auto spawnCountRef = &spawnCount;
-    ImGui::SetNextItemWidth(100);
-    if (ImGui::InputInt("Number of objects to spawn", spawnCountRef))
-    {
-        spawnCount = std::max(std::min(*spawnCountRef, 999), 1);
-    }
-    if (ImGui::Button("Spawn balls in scene"))
-    {
-        spawn_random();
-    }
-    if (ImGui::Button("Clear scene"))
-    {
-        world->clear();
-    }
     ImGui::Separator();
     ImGui::TextUnformatted("w, a, s, d, space, ctrl - move camera");
     ImGui::TextUnformatted("  * forward, left, back, right, up, down");
@@ -386,12 +333,12 @@ void Window::render() const
 
     ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 
-    glfwSwapBuffers(window);
+    glfwSwapBuffers(glfWindow);
 }
 
 bool Window::should_close() const
 {
-    return glfwWindowShouldClose(window);
+    return glfwWindowShouldClose(glfWindow);
 }
 
 Window::~Window()
@@ -399,6 +346,6 @@ Window::~Window()
     ImGui_ImplOpenGL3_Shutdown();
     ImGui_ImplGlfw_Shutdown();
     ImGui::DestroyContext();
-    glfwDestroyWindow(window);
+    glfwDestroyWindow(glfWindow);
     glfwTerminate();
 }

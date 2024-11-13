@@ -31,10 +31,11 @@ if (CMAKE_VERSION VERSION_GREATER 3.12)
   set_property(TARGET GameEngineProject PROPERTY CXX_STANDARD 20)
 endif()
 
+target_link_options(GameEngineProject PRIVATE "/NODEFAULTLIB:library")
 target_link_directories(GameEngineProject PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/deps/libs)
 target_link_libraries(GameEngineProject PRIVATE "glfw3.lib")
 target_link_libraries(GameEngineProject PRIVATE "opengl32.lib")
-target_link_options(GameEngineProject PRIVATE "/NODEFAULTLIB:library")
+target_link_libraries(GameEngineProject PRIVATE "lua54.lib")
 
 add_custom_command(TARGET GameEngineProject POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_CURRENT_SOURCE_DIR}/shaders $<TARGET_FILE_DIR:GameEngineProject>/shaders)
 add_custom_command(TARGET GameEngineProject POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_CURRENT_SOURCE_DIR}/pointcloud $<TARGET_FILE_DIR:GameEngineProject>/pointcloud)
