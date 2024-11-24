@@ -10,6 +10,8 @@ glm::vec3 checkLoc = glm::vec3(0, 0, 0);
 
 void World::insert(GameObject* object)
 {
+    object->attatch_to_world(this);
+    object->register_ecs(&ecs);
     if (object->get_collider() == nullptr)
     {
         objects_non_colliders.push_back(object);

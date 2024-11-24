@@ -13,7 +13,7 @@
 class GameObjectBase
 {
 private:
-    UUID uuid = UUID::generate_v4();
+    UUID uuid;
     std::vector<Vertex> vertices;
     std::vector<unsigned> indices;
     // Shaders can be shared between objects
@@ -25,7 +25,7 @@ private:
     World* world;
 
 public:
-    GameObjectBase(std::vector<Vertex> vertices, std::vector<unsigned> indices, World* world) : vertices(vertices), indices(indices), world(world) {};
+    GameObjectBase(std::vector<Vertex> vertices, std::vector<unsigned> indices, World* world) : vertices(vertices), indices(indices), world(world), uuid(UUID::generate_v4()) {};
     GameObjectBase() : vertices({}), indices({}), world(nullptr) {};
     ~GameObjectBase()
     {
@@ -59,10 +59,10 @@ public:
     static void setup();
     Vertex get_min_vertex() const;
     Vertex get_max_vertex() const;
+    void attatch_to_world(World* world) { this->world = world; }
     virtual void register_ecs(ECSGlobalMap* ecs)
     {
-        auto transform = TransformComponent{ glm::vec3(0), glm::quat(1, 0, 0, 0), glm::vec3(1) };
-        ecs->insert<TransformComponent>(uuid, &transform);
+        ecs->insert<TransformComponent>(uuid, new TransformComponent{ glm::vec3(0), glm::quat(1, 0, 0, 0), glm::vec3(1) });
     };
     template <typename T>
     T* get_component() const

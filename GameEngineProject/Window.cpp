@@ -24,7 +24,7 @@
 #include "objects/curves/BSplineSurface.h"
 #include "objects/surface/PointCloud.h"
 
-#define CAMERA_SPEED 2.5f
+#define CAMERA_SPEED 10.0f
 
 constexpr int width = 1280, height = 720;
 bool wireframe = false;
@@ -183,7 +183,7 @@ int Window::init()
     dynamic_cast<ColorMaterial*>(debugSphere->get_material())->color = glm::vec4(0.0f, 0.0f, 1.0f, 0.5f);
 
     glfwSetWindowTitle(glfWindow, "Setting up point cloud surface");
-    auto pointCloud = new PointCloud("./pointcloud/small.las");
+    auto pointCloud = new PointCloud("./pointcloud/Medium.las");
     auto bsplineSurface = pointCloud->convert_to_surface();
     delete pointCloud;
     bsplineSurface->set_shader(ShaderStore::get_shader("noLight"));
