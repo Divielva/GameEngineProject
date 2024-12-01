@@ -13,24 +13,54 @@ void World::insert(GameObject* object)
 {
     object->attatch_to_world(this);
     object->register_ecs(&ecs);
+
     if (object->get_collider() == nullptr)
     {
         objects_non_colliders.push_back(object);
         return;
     }
-    if (!tree.insert(object))
+    tree.insert(object);
+}
+void World::insert(GameObject* object, glm::vec3 position)
+{
+    object->attatch_to_world(this);
+    object->register_ecs(&ecs);
+    object->get_component<TransformComponent>()->set_position(position);
+    if (object->get_collider() == nullptr)
     {
-        // object is out of bounds correct the bounds and try again
-        auto bounds = tree.get_bounds();
-        auto pos = object->get_component<TransformComponent>()->position;
-        auto min = bounds.center - bounds.extent;
-        auto max = bounds.center + bounds.extent;
-        min = glm::min(min, pos);
-        max = glm::max(max, pos);
-        auto center = (min + max) / 2.0f;
-        auto extent = (max - min) / 2.0f;
-        tree.set_bounds(center, extent);
+        objects_non_colliders.push_back(object);
+        return;
     }
+    tree.insert(object);
+}
+void World::insert(GameObject* object, glm::vec3 position, glm::vec3 scale)
+{
+    object->attatch_to_world(this);
+    object->register_ecs(&ecs);
+    auto transform = object->get_component<TransformComponent>();
+    transform->set_position(position);
+    transform->set_scale(scale);
+    if (object->get_collider() == nullptr)
+    {
+        objects_non_colliders.push_back(object);
+        return;
+    }
+    tree.insert(object);
+}
+void World::insert(GameObject* object, glm::vec3 position, glm::vec3 scale, glm::quat rotation)
+{
+    object->attatch_to_world(this);
+    object->register_ecs(&ecs);
+    auto transform = object->get_component<TransformComponent>();
+    transform->set_position(position);
+    transform->set_scale(scale);
+    transform->set_rotation(rotation);
+    if (object->get_collider() == nullptr)
+    {
+        objects_non_colliders.push_back(object);
+        return;
+    }
+    tree.insert(object);
 }
 
 DrawCounts World::draw(Frustum* frustum)
@@ -42,7 +72,7 @@ DrawCounts World::draw(Frustum* frustum)
     counts.objects_filtered = std::get<1>(tuple);
     for (auto& object : objects)
     {
-        if (object->get_collider()->is_on_frustum(frustum) && object->should_render())
+        if ((object->get_collider()->is_on_frustum(frustum) || object->get_uuid() == surface_id) && object->should_render())
         {
             counts.objects_drawn++;
             object->draw();
@@ -89,24 +119,15 @@ void World::update(float delta_time)
     std::vector<GameObject*> objects;
     AABB bounds = tree.get_bounds();
     tree.query_range(bounds, objects);
-    unsigned index = 0;
     for (auto& object : objects)
     {
         if (object != nullptr)
         {
             if (object->get_active())
             {
-                auto model = object->get_model_matrix();
-                auto minVertex = glm::vec3(model * glm::vec4(object->get_min_vertex().position, 1));
-                auto maxVertex = glm::vec3(model * glm::vec4(object->get_max_vertex().position, 1));
-                std::vector<GameObject*> in_range_objects;
-                bounds.center = (minVertex + maxVertex) / 2.0f; // center of the object
-                bounds.extent = (maxVertex - minVertex) * 2.0f; // double the size of the object
-                tree.query_range(bounds, in_range_objects);
-                bool collided = false;
+                object->update(delta_time);
             }
         }
-        index++;
     }
     tree.recalculate();
 }
@@ -207,4 +228,19 @@ void World::draw_light_editor()
         ImGui::SliderFloat("Direction Y", &spotLight->direction.y, -1.0f, 1.0f);
         ImGui::SliderFloat("Direction Z", &spotLight->direction.z, -1.0f, 1.0f);
     }
+}
+
+GameObject* World::get_object(UUID id)
+{
+    auto object = tree.get_node([&id](GameObject* object)
+        { return object->get_uuid() == id; });
+    if (object == nullptr)
+    {
+        for (auto& object : objects_non_colliders)
+        {
+            if (object->get_uuid() == id)
+                return object;
+        }
+    }
+    return object;
 }

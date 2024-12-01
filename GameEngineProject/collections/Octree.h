@@ -8,7 +8,7 @@
 class OcTreeBase
 {
 private:
-    AABB boundary;
+    AABB boundary = AABB();
     bool leaf;
 
 public:
@@ -16,9 +16,10 @@ public:
     {
         boundary.center = center;
         boundary.extent = extent;
+        boundary.recalculate();
     };
 
-    AABB get_bounds() const { return boundary; }
+    AABB get_bounds() { return boundary; }
     virtual void draw_debug(Line* line, bool draw_bounds = true);
     bool is_leaf() const { return leaf; }
     void set_leaf(bool vleaf) { leaf = vleaf; }
@@ -186,7 +187,7 @@ public:
         delete southEastLower;
     };
 
-    bool insert(T point)
+    bool insert(T point, int max_depth = 20)
     {
         if (!get_bounds().contains(point))
             return false;
@@ -198,24 +199,27 @@ public:
             return true;
         }
 
+        if (max_depth == 0)
+            return false;
+
         if (is_leaf())
             subdivide();
 
-        if (northWestUpper->insert(point))
+        if (northWestUpper->insert(point, max_depth - 1))
             return true;
-        if (northEastUpper->insert(point))
+        if (northEastUpper->insert(point, max_depth - 1))
             return true;
-        if (southWestUpper->insert(point))
+        if (southWestUpper->insert(point, max_depth - 1))
             return true;
-        if (southEastUpper->insert(point))
+        if (southEastUpper->insert(point, max_depth - 1))
             return true;
-        if (northWestLower->insert(point))
+        if (northWestLower->insert(point, max_depth - 1))
             return true;
-        if (northEastLower->insert(point))
+        if (northEastLower->insert(point, max_depth - 1))
             return true;
-        if (southWestLower->insert(point))
+        if (southWestLower->insert(point, max_depth - 1))
             return true;
-        if (southEastLower->insert(point))
+        if (southEastLower->insert(point, max_depth - 1))
             return true;
         return false;
     };
@@ -256,9 +260,9 @@ public:
         return result;
     }
     template <typename F>
-    std::tuple<unsigned, unsigned> query_range(const AABB& range, std::vector<F>& found, Frustum* frustum = nullptr)
+    std::tuple<unsigned, unsigned> query_range(AABB range, std::vector<F>& found, Frustum* frustum = nullptr)
     {
-        auto total = 1;
+        auto total = 0;
         auto found_count = 0;
         auto bounds = get_bounds();
         if (frustum == nullptr)
@@ -274,7 +278,10 @@ public:
 
         F data = nullptr;
         if (node != nullptr)
+        {
             data = dynamic_cast<F>(node->data);
+            total++;
+        }
 
         if (data != nullptr && range.contains(data))
         {
@@ -313,7 +320,7 @@ public:
     };
 
     template <typename F>
-    void query_range(const AABB& range, std::vector<F>& found, std::function<bool(const F)> filter)
+    void query_range(AABB range, std::vector<F>& found, std::function<bool(const F)> filter)
     {
         if (!get_bounds().contains(range))
             return;
@@ -338,6 +345,97 @@ public:
         southEastLower->query_range(range, found, filter);
     };
 
+    template <typename F>
+    void query(std::vector<F>& found)
+    {
+        F data = nullptr;
+        if (node != nullptr)
+            data = dynamic_cast<F>(node->data);
+
+        if (data != nullptr)
+            found.push_back(data);
+
+        if (is_leaf())
+            return;
+
+        northWestUpper->query(found);
+        northEastUpper->query(found);
+        southWestUpper->query(found);
+        southEastUpper->query(found);
+        northWestLower->query(found);
+        northEastLower->query(found);
+        southWestLower->query(found);
+        southEastLower->query(found);
+    }
+
+    template <typename F>
+    void query(std::vector<F>& found, std::function<bool(const F)> filter)
+    {
+        F data = nullptr;
+        if (node != nullptr)
+            data = dynamic_cast<F>(node->data);
+
+        if (data != nullptr && filter(data))
+            found.push_back(data);
+
+        if (is_leaf())
+            return;
+
+        northWestUpper->query(found, filter);
+        northEastUpper->query(found, filter);
+        southWestUpper->query(found, filter);
+        southEastUpper->query(found, filter);
+        northWestLower->query(found, filter);
+        northEastLower->query(found, filter);
+    }
+
+    template <typename F>
+    std::tuple<unsigned, unsigned> query(std::vector<F>& found, Frustum* frustum, std::function<glm::vec3(const F)> get_position)
+    {
+        auto total = 0;
+        auto found_count = 0;
+        F data = nullptr;
+        if (node != nullptr)
+        {
+            data = dynamic_cast<F>(node->data);
+            total++;
+        }
+        if (data != nullptr && frustum->contains(get_position(data)))
+        {
+            found.push_back(data);
+            found_count++;
+        }
+
+        if (is_leaf())
+            return std::make_tuple(total, found_count);
+
+        auto tmp = northWestUpper->query(found, frustum, get_position);
+        total += std::get<0>(tmp);
+        found_count += std::get<1>(tmp);
+        tmp = northEastUpper->query(found, frustum, get_position);
+        total += std::get<0>(tmp);
+        found_count += std::get<1>(tmp);
+        tmp = southWestUpper->query(found, frustum, get_position);
+        total += std::get<0>(tmp);
+        found_count += std::get<1>(tmp);
+        tmp = southEastUpper->query(found, frustum, get_position);
+        total += std::get<0>(tmp);
+        found_count += std::get<1>(tmp);
+        tmp = northWestLower->query(found, frustum, get_position);
+        total += std::get<0>(tmp);
+        found_count += std::get<1>(tmp);
+        tmp = northEastLower->query(found, frustum, get_position);
+        total += std::get<0>(tmp);
+        found_count += std::get<1>(tmp);
+        tmp = southWestLower->query(found, frustum, get_position);
+        total += std::get<0>(tmp);
+        found_count += std::get<1>(tmp);
+        tmp = southEastLower->query(found, frustum, get_position);
+        total += std::get<0>(tmp);
+        found_count += std::get<1>(tmp);
+        return std::make_tuple(total, found_count);
+    }
+
     void recalculate();
     void draw_debug(Line* line, bool draw_bounds = true) override
     {
@@ -352,6 +450,36 @@ public:
         northEastLower->draw_debug(line, false);
         southWestLower->draw_debug(line, false);
         southEastLower->draw_debug(line, false);
+    }
+
+    T get_node(std::function<bool(T)> predicate)
+    {
+        if (node != nullptr && predicate(node->data))
+            return node->data;
+        if (is_leaf())
+            return nullptr;
+        auto result = northWestUpper->get_node(predicate);
+        if (result != nullptr)
+            return result;
+        result = northEastUpper->get_node(predicate);
+        if (result != nullptr)
+            return result;
+        result = southWestUpper->get_node(predicate);
+        if (result != nullptr)
+            return result;
+        result = southEastUpper->get_node(predicate);
+        if (result != nullptr)
+            return result;
+        result = northWestLower->get_node(predicate);
+        if (result != nullptr)
+            return result;
+        result = northEastLower->get_node(predicate);
+        if (result != nullptr)
+            return result;
+        result = southWestLower->get_node(predicate);
+        if (result != nullptr)
+            return result;
+        return southEastLower->get_node(predicate);
     }
 
     void clear()

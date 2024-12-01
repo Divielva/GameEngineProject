@@ -3,13 +3,16 @@
 #include "../ShaderStore.h"
 #include "../Material.h"
 #include "../objects/base/GameObject.h"
-#include "../objects/base/GameObject.h"
 
 AABB::AABB(glm::vec3 center, glm::vec3 extent) : center(center), extent(extent)
 {
+    min = center - extent;
+    max = center + extent;
 }
 AABB::AABB() : center(glm::vec3(0.0f)), extent(glm::vec3(0.0f))
 {
+    min = center - extent;
+    max = center + extent;
 }
 AABB::~AABB()
 {
@@ -48,13 +51,12 @@ void AABB::draw_debug(Line* line)
 template <>
 bool AABB::contains<GameObject*>(GameObject* const& point) const
 {
-    return false;
-    // return contains(point->get_position());
+    return contains(point->get_component<TransformComponent>()->get_position());
 }
 
 void AABB::update(GameObject* object)
 {
-    // center = object->get_position();
+    center = object->get_component<TransformComponent>()->get_position();
 }
 
 bool AABB::is_on_frustum(Frustum* frustum)
@@ -71,4 +73,18 @@ bool AABB::is_on_or_forward_plane(Plane* plane)
 {
     const float r = extent.x * abs(plane->normal.x) + extent.y * abs(plane->normal.y) + extent.z * abs(plane->normal.z);
     return -r <= plane->getSignedDistanceToPlane(center);
+}
+
+glm::vec3 AABB::find_furthest_point(glm::vec3 direction)
+{
+    auto max = center + extent;
+    auto min = center - extent;
+    glm::vec3 result = min;
+    if (direction.x >= 0)
+        result.x = max.x;
+    if (direction.y >= 0)
+        result.y = max.y;
+    if (direction.z >= 0)
+        result.z = max.z;
+    return result;
 }

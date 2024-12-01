@@ -14,8 +14,7 @@ template <>
 void OcTree<GameObject*>::recalculate()
 {
     std::vector<GameObject*> all_objects;
-    query_range<GameObject*>(get_bounds(), all_objects, [](const GameObject* object)
-        { return object->get_has_updated(); });
+    query<GameObject*>(all_objects);
 
     for (auto& object : all_objects)
     {

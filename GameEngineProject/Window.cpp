@@ -25,8 +25,12 @@
 #include "objects/curves/BSpline.h"
 #include "objects/curves/BSplineSurface.h"
 #include "objects/surface/PointCloud.h"
+#include "objects/primitives/TrackedSphere.h"
+#include "Particle.h"
 #include "ecs/components/physics.h"
 #include "ecs/system/physics.h"
+#include "ecs/system/collision.h"
+
 
 #define CAMERA_SPEED 25.0f
 
@@ -96,6 +100,21 @@ static void scroll_callback(GLFWwindow* window, double xoffset, double yoffset)
     input.process_mouse_scroll(window, xoffset, yoffset);
     prev_scroll_callback(window, xoffset, yoffset);
 }
+
+
+//spawning the TrackedSphere into the world
+void spawn_on_position(glm::vec3 position, glm::vec3 scale, glm::vec4 color)
+{
+	auto sphere = new TrackedSphere();
+	sphere->set_shader(ShaderStore::get_shader("default"));
+	sphere->set_material(new ColorMaterial(color));
+	world->insert(sphere, position, scale);
+	world->get_ecs()->insert<PhysicsComponent>(sphere->get_uuid(), new PhysicsComponent());
+	auto curve = sphere->get_track();
+	curve->set_shader(ShaderStore::get_shader("noLight"));
+	world->insert(curve);
+}
+
 
 int Window::init()
 {
@@ -178,21 +197,32 @@ int Window::init()
             light->diffuse = hsl(0, 0, 0.8f);
             light->specular = hsl(0, 0, 0.5f); });
     world->register_system(new PhysicsSystem(world->get_ecs(), world));
+    world->register_system(new CollisionSystem(world->get_ecs(), world));
+
+    //Debugline, arrow and Sphere
     debugLine = new Line();
     debugLine->set_shader(ShaderStore::get_shader("noLight"));
     debugLine->set_material(new ColorMaterial());
+    debugLine->attatch_to_world(world);
+    debugLine->register_ecs(world->get_ecs());
     dynamic_cast<ColorMaterial*>(debugLine->get_material())->color = glm::vec4(1.0f, 0.0f, 0.0f, 0.5f);
     debugArrow = new Arrow();
     debugArrow->set_shader(ShaderStore::get_shader("noLight"));
     debugArrow->set_material(new ColorMaterial());
+    debugArrow->attatch_to_world(world);
+    debugArrow->register_ecs(world->get_ecs());
     dynamic_cast<ColorMaterial*>(debugArrow->get_material())->color = glm::vec4(0.0f, 1.0f, 0.0f, 0.5f);
     debugSphere = new IcoSphere();
     debugSphere->create(3);
     debugSphere->set_shader(ShaderStore::get_shader("noLight"));
     debugSphere->set_material(new ColorMaterial());
-    // debugSphere->set_scale(glm::vec3(0.1f));
+    debugSphere->attatch_to_world(world);
+    debugSphere->register_ecs(world->get_ecs());
+    debugSphere->get_component<TransformComponent>()->set_scale(glm::vec3(.1f));
     dynamic_cast<ColorMaterial*>(debugSphere->get_material())->color = glm::vec4(0.0f, 0.0f, 1.0f, 0.5f);
 
+
+    //setting up pointcloud surface
     glfwSetWindowTitle(glfWindow, "Setting up point cloud surface");
     auto pointCloud = new PointCloud("./pointcloud/Medium.las");
     auto bsplineSurface = pointCloud->convert_to_surface();
@@ -212,6 +242,8 @@ int Window::init()
     auto center = (min + max) / 2.0f;
     auto extent = (max - min) / 2.0f;
     world->set_bounds(center, extent);
+    bsplineSurface->get_component<TransformComponent>()->set_position(glm::vec3(0.0001f));
+	world->set_surface_id(bsplineSurface->get_uuid());
 
     glfwSetWindowTitle(glfWindow, "GameEngineProject");
     return 0;
@@ -277,13 +309,13 @@ void Window::update() const
     // has to do microseconds due to fps being over 1000
     deltaTime = std::chrono::duration_cast<std::chrono::microseconds>(currentFrame - lastFrame).count() / 1000000.0f;
     lastFrame = currentFrame;
-    fps = 1.0f / deltaTime;
+    auto currentFps = 1.0f / deltaTime;
     // calculate the average fps
     for (int i = 0; i < 99; i++)
     {
         fpsAvg[i] = fpsAvg[i + 1];
     }
-    fpsAvg[99] = fps;
+    fpsAvg[99] = currentFps;
     float sum = 0;
     for (int i = 0; i < 100; i++)
     {
@@ -308,7 +340,8 @@ void Window::update() const
 
     ImGui::Begin("Debug");
     ImGui::SetWindowSize(ImVec2(311, 235), ImGuiCond_FirstUseEver);
-    ImGui::Text("FPS: %.1f", fps);
+    ImGui::Text("Average FPS: %.1f", fps);
+    ImGui::Text("Current FPS: %.1f", currentFps);
     ImGui::Separator();
     ImGui::TextUnformatted("w, a, s, d, space, ctrl - move camera");
     ImGui::TextUnformatted("  * forward, left, back, right, up, down");
@@ -316,7 +349,10 @@ void Window::update() const
     ImGui::TextUnformatted("q - toggle debug");
     ImGui::TextUnformatted("esc - toggle camera control");
     ImGui::TextUnformatted("Mouse - rotate camera");
+    ImGui::Separator();
+    ImGui::TextUnformatted("Hold ctrl and then click on an input slider to type a value if you need more precision");
     ImGui::End();
+
 
     if (drawDebug)
     {
@@ -340,6 +376,8 @@ void Window::update() const
     ImGui::SetWindowSize(ImVec2(311, 235), ImGuiCond_FirstUseEver);
     world->draw_light_editor();
     ImGui::End();
+
+    particle_window(world, spawn_on_position);
     frustum = Frustum::create_from_camera_and_input(&camera, &input);
 }
 

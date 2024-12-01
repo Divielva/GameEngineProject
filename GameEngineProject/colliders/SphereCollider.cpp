@@ -9,6 +9,7 @@ void SphereCollider::update(GameObject* object)
 }
 
 glm::vec3 SphereCollider::get_center() { return get_parent()->get_component<TransformComponent>()->position; }
+glm::vec3 SphereCollider::get_scale() { return get_parent()->get_component<TransformComponent>()->scale; }
 
 bool SphereCollider::is_on_frustum(Frustum* frustum)
 {
@@ -22,6 +23,10 @@ bool SphereCollider::is_on_frustum(Frustum* frustum)
 
 bool SphereCollider::is_on_or_forward_plane(Plane* plane)
 {
-    return false;
-    // return plane->getSignedDistanceToPlane(get_parent()->get_component<TransformComponent>()->get_world_position()) > -radius;
+    return plane->getSignedDistanceToPlane(get_parent()->get_component<TransformComponent>()->position) > -radius;
+}
+
+glm::vec3 SphereCollider::find_furthest_point(glm::vec3 direction)
+{
+    return get_center() + glm::normalize(direction) * radius;
 }

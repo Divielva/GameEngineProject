@@ -47,6 +47,16 @@ public:
     virtual bool is_on_frustum(Frustum* frustum) { return true; }
     template <typename T>
     float collision_delta(T* collider, float delta_time);
+
+    virtual glm::vec3 find_furthest_point(glm::vec3 direction) = 0;
+    glm::vec3 support(ColliderBase& other, glm::vec3 direction)
+    {
+        return this->find_furthest_point(direction) - other.find_furthest_point(-direction);
+    }
+    glm::vec3 support(glm::vec3 direction)
+    {
+        return this->find_furthest_point(direction);
+    }
 };
 
 template <typename T>
@@ -61,5 +71,5 @@ public:
     virtual ~Collider() {}
     void add_callback(std::function<void(Collider*)> callback) { onCollisionCallbacks.push_back(callback); }
 
-    virtual bool contains(const T& point) const = 0;
+    virtual bool contains(T& point) = 0;
 };
