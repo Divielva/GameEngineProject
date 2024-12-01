@@ -12,19 +12,23 @@
 #include "colliders/SphereCollider.h"
 #include "World.h"
 #include <iostream>
+#include <algorithm>
 #include <imgui/imgui.h>
 #include <imgui/imgui_impl_glfw.h>
 #include <imgui/imgui_impl_opengl3.h>
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 #include <chrono>
+#include "HSL.h"
 #include "culling/Frustum.h"
 #include "objects/curves/Bezier.h"
 #include "objects/curves/BSpline.h"
 #include "objects/curves/BSplineSurface.h"
 #include "objects/surface/PointCloud.h"
+#include "ecs/components/physics.h"
+#include "ecs/system/physics.h"
 
-#define CAMERA_SPEED 10.0f
+#define CAMERA_SPEED 25.0f
 
 constexpr int width = 1280, height = 720;
 bool wireframe = false;
@@ -38,10 +42,9 @@ float fpsAvg[100] = { 0 };
 std::chrono::time_point<std::chrono::high_resolution_clock> lastFrame = std::chrono::high_resolution_clock::now();
 int spawnCount = 50;
 
-Camera camera = Camera(glm::vec3(1.5f, 3.0f, 11.5f), glm::vec3(0.0f, 1.0f, 0.0f), -101.0f, -14.5f);
+Camera camera = Camera(glm::vec3(1.5f, 30.0f, 11.5f), glm::vec3(0.0f, 1.0f, 0.0f), -100.0f, -20.0f);
 InputProcessing input;
 ShadowProcessor shadowProcessor;
-LightManager lightManager;
 Frustum frustum;
 DrawCounts drawCounts;
 
@@ -156,9 +159,8 @@ int Window::init()
     glfwSetWindowTitle(glfWindow, "Loading shaders");
     ShaderStore::add_params_callback([](const Shader* shader)
         { camera.set_shader(shader);
-    lightManager.set_shader(shader);
-    shadowProcessor.set_shader(shader);
-    input.set_shader(shader); });
+          shadowProcessor.set_shader(shader);
+          input.set_shader(shader); });
     ShaderStore::load_shaders();
 
     glfwSetWindowTitle(glfWindow, "Setting up buffers");
@@ -166,7 +168,16 @@ int Window::init()
 
     glfwSetWindowTitle(glfWindow, "Setting up world and debug objects");
     world = new World();
-    world->set_bounds(glm::vec3(0, 0, 0), glm::vec3(10, 10, 10));
+    ShaderStore::add_params_callback([](const Shader* shader)
+        { world->set_shader(shader); });
+    world->set_directional_light(new DirectionalLight());
+    world->update_directional_light([](DirectionalLight* light)
+        {
+            light->direction = glm::normalize(glm::vec3(0.2f, -1.0f, -0.3f));
+            light->ambient = hsl(0, 0, 0.2f);
+            light->diffuse = hsl(0, 0, 0.8f);
+            light->specular = hsl(0, 0, 0.5f); });
+    world->register_system(new PhysicsSystem(world->get_ecs(), world));
     debugLine = new Line();
     debugLine->set_shader(ShaderStore::get_shader("noLight"));
     debugLine->set_material(new ColorMaterial());
@@ -186,10 +197,21 @@ int Window::init()
     auto pointCloud = new PointCloud("./pointcloud/Medium.las");
     auto bsplineSurface = pointCloud->convert_to_surface();
     delete pointCloud;
-    bsplineSurface->set_shader(ShaderStore::get_shader("noLight"));
+    bsplineSurface->set_shader(ShaderStore::get_shader("default"));
     bsplineSurface->set_material(new ColorMaterial());
     dynamic_cast<ColorMaterial*>(bsplineSurface->get_material())->color = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f);
     world->insert(bsplineSurface);
+    auto vertices = bsplineSurface->get_vertices();
+    auto min = glm::vec3(FLT_MAX);
+    auto max = glm::vec3(-FLT_MAX);
+    for (auto& vertex : vertices)
+    {
+        min = glm::min(min, vertex.position);
+        max = glm::max(max, vertex.position);
+    }
+    auto center = (min + max) / 2.0f;
+    auto extent = (max - min) / 2.0f;
+    world->set_bounds(center, extent);
 
     glfwSetWindowTitle(glfWindow, "GameEngineProject");
     return 0;
@@ -284,9 +306,6 @@ void Window::update() const
     ImGui_ImplGlfw_NewFrame();
     ImGui::NewFrame();
 
-    if (drawDebug)
-        ImGui::ShowDemoWindow();
-
     ImGui::Begin("Debug");
     ImGui::SetWindowSize(ImVec2(311, 235), ImGuiCond_FirstUseEver);
     ImGui::Text("FPS: %.1f", fps);
@@ -299,19 +318,27 @@ void Window::update() const
     ImGui::TextUnformatted("Mouse - rotate camera");
     ImGui::End();
 
-    ImGui::Begin("Camera");
-    ImGui::SetWindowSize(ImVec2(311, 235), ImGuiCond_FirstUseEver);
-    ImGui::Text("Position: (%.2f, %.2f, %.2f)", camera.get_pos().x, camera.get_pos().y, camera.get_pos().z);
-    ImGui::Text("Front: (%.2f, %.2f, %.2f)", camera.get_front().x, camera.get_front().y, camera.get_front().z);
-    ImGui::Text("Up: (%.2f, %.2f, %.2f)", camera.get_up().x, camera.get_up().y, camera.get_up().z);
-    ImGui::Text("Right: (%.2f, %.2f, %.2f)", camera.get_right().x, camera.get_right().y, camera.get_right().z);
-    ImGui::End();
+    if (drawDebug)
+    {
+        ImGui::Begin("Camera");
+        ImGui::SetWindowSize(ImVec2(311, 235), ImGuiCond_FirstUseEver);
+        ImGui::Text("Position: (%.2f, %.2f, %.2f)", camera.get_pos().x, camera.get_pos().y, camera.get_pos().z);
+        ImGui::Text("Front: (%.2f, %.2f, %.2f)", camera.get_front().x, camera.get_front().y, camera.get_front().z);
+        ImGui::Text("Up: (%.2f, %.2f, %.2f)", camera.get_up().x, camera.get_up().y, camera.get_up().z);
+        ImGui::Text("Right: (%.2f, %.2f, %.2f)", camera.get_right().x, camera.get_right().y, camera.get_right().z);
+        ImGui::End();
 
-    ImGui::Begin("World");
+        ImGui::Begin("World");
+        ImGui::SetWindowSize(ImVec2(311, 235), ImGuiCond_FirstUseEver);
+        ImGui::Text("Objects after culling: %d", drawCounts.objects_culled);
+        ImGui::Text("Objects filtered: %d", drawCounts.objects_filtered);
+        ImGui::Text("Objects drawn: %d", drawCounts.objects_drawn);
+        ImGui::End();
+    }
+
+    ImGui::Begin("Light");
     ImGui::SetWindowSize(ImVec2(311, 235), ImGuiCond_FirstUseEver);
-    ImGui::Text("Objects after culling: %d", drawCounts.objects_culled);
-    ImGui::Text("Objects filtered: %d", drawCounts.objects_filtered);
-    ImGui::Text("Objects drawn: %d", drawCounts.objects_drawn);
+    world->draw_light_editor();
     ImGui::End();
     frustum = Frustum::create_from_camera_and_input(&camera, &input);
 }
