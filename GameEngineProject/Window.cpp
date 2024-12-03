@@ -32,7 +32,7 @@
 #include "ecs/system/collision.h"
 
 
-#define CAMERA_SPEED 25.0f
+#define CAMERA_SPEED 50.0f
 
 constexpr int width = 1280, height = 720;
 bool wireframe = false;
@@ -225,8 +225,17 @@ int Window::init()
     //setting up pointcloud surface
     glfwSetWindowTitle(glfWindow, "Setting up point cloud surface");
     auto pointCloud = new PointCloud("./pointcloud/Medium.las");
+
+    //Uncomment this code and uncomment out everything 
+    //below B-spline surface creation to only render the pointcloud
+	//pointCloud->set_shader(ShaderStore::get_shader("noLight"));
+	//pointCloud->set_material(new ColorMaterial(glm::vec4(1)));
+	//world->insert(pointCloud);
+
+    //B-spline Surface creation
     auto bsplineSurface = pointCloud->convert_to_surface();
     delete pointCloud;
+    //bsplineSurface->set_shader(ShaderStore::get_shader("noLight"));
     bsplineSurface->set_shader(ShaderStore::get_shader("default"));
     bsplineSurface->set_material(new ColorMaterial());
     dynamic_cast<ColorMaterial*>(bsplineSurface->get_material())->color = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f);
