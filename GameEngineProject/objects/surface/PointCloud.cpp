@@ -45,7 +45,6 @@ GameObject* PointCloud::convert_to_surface()
         std::sort(pair.second.begin(), pair.second.end(), [](glm::vec3 a, glm::vec3 b)
             { return a.x < b.x; });
     }
-    // TODO: Make this average the height of the points in the same row between each step to make the surface smoother and more accurate
     // X Size step is the min and maximum point value in all rows
     // Z Size step is the index of the itteration in the map
     auto size = point_map.size();
@@ -85,7 +84,8 @@ GameObject* PointCloud::convert_to_surface()
             points.push_back(glm::vec3(prev_x + x_step / 2, y_avg, actual_map_index));
             prev_x += x_step;
         }
-        glfwSetWindowTitle(Window::glfWindow, std::format("Processing point cloud to surface: {:.2f}%", (float)(i * size) / (size * size) * 100).c_str());
+        glfwSetWindowTitle(Window::glfWindow, std::format("Processing point cloud to surface: {:.2f}%", 
+            (float)(i * size) / (size * size) * 100).c_str());
     }
     glfwSetWindowTitle(Window::glfWindow, "Generating knot vector for surface");
     std::vector<float> knot_vector = BSpline<glm::vec3>::get_knot_vector(size - 1);
